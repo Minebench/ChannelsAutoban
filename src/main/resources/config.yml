@@ -1,0 +1,59 @@
+servergroups:
+   default:
+    - lobby
+
+counters:
+   insult:
+      max: 4
+      decrease: 60
+      action: ban
+      reason: Insult
+   spam:
+      max: 6
+      decrease: 30
+      action: tempban
+      reason: Spam
+      
+defaultaction: default
+actions:
+   default:
+      self:
+       - kick
+      playerserver:
+       - "ban %player% Autoban"
+      groups:
+         default:
+          - "bmreload"
+   ban:
+      self:
+       - kick
+      playerserver:
+       - "ban %player% %reason%""
+      groups:
+         default:
+          - "bmreload"
+   tempban:
+      self:
+       - kick
+      playerserver:
+       - "tempban %player% 2d1s %reason%"
+      groups:
+         default:
+          - "bmreload"
+          
+patterns:
+ - pattern: '§'
+   action: ban
+   reason: 'Forbidden Client'
+   hide: false
+   fuzzy: true
+ - pattern: '^connected with an .* using MineChat$'
+   action: none
+   reason: ''
+   hide: true
+   fuzzy: false
+ - pattern: '^I.m chatting on my .* using Minecraft Connect.  Check it out, it.s free ..$'
+   action: none
+   reason: ''
+   hide: true
+   fuzzy: false

@@ -3,4 +3,16 @@
   <groupId>net.zaiyers</groupId>
   <artifactId>ChannelsAutoban</artifactId>
   <version>0.0.1-SNAPSHOT</version>
+  <dependencies>
+  	<dependency>
+  		<groupId>bungee</groupId>
+  		<artifactId>bungee</artifactId>
+  		<version>872</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>Channels</groupId>
+  		<artifactId>Channels</artifactId>
+  		<version>0.0.1-SNAPSHOT</version>
+  	</dependency>
+  </dependencies>
 </project>
