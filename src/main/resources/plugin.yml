@@ -1,0 +1,5 @@
+name: Channels
+main: net.zaiyers.ChannelsAutoban.ChannelsAutoban
+version: 1.0
+author: zaiyers
+depends: Channels
