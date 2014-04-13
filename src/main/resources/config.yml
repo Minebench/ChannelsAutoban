@@ -1,3 +1,4 @@
+commandSender: "Autoban"
 servergroups:
    default:
     - lobby
@@ -5,42 +6,31 @@ servergroups:
 counters:
    insult:
       max: 4
-      decrease: 60
+      ttl: 60
       action: ban
       reason: Insult
    spam:
       max: 6
-      decrease: 30
+      ttl: 30
       action: tempban
       reason: Spam
-      
-defaultaction: default
+
 actions:
-   default:
-      self:
-       - kick
-      playerserver:
-       - "ban %player% Autoban"
-      groups:
-         default:
-          - "bmreload"
    ban:
-      self:
-       - kick
+      kick: true
       playerserver:
        - "ban %player% %reason%""
       groups:
          default:
           - "bmreload"
    tempban:
-      self:
-       - kick
+      kick: true
       playerserver:
        - "tempban %player% 2d1s %reason%"
       groups:
          default:
           - "bmreload"
-          
+
 patterns:
  - pattern: '§'
    action: ban
@@ -57,3 +47,7 @@ patterns:
    reason: ''
    hide: true
    fuzzy: false
+ - pattern: 'bad word'
+   counter: insult
+   hide: false
+   fuzzy: true
