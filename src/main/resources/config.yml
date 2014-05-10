@@ -1,4 +1,5 @@
-commandSender: "Autoban"
+commandsender: "Autoban"
+
 servergroups:
    default:
     - lobby
@@ -6,12 +7,22 @@ servergroups:
 counters:
    insult:
       max: 4
-      ttl: 60
+      ttl: 120
       action: ban
       reason: Insult
+   advertising:
+      max: 1
+      action: tempban
+      reason: Advertising
+   hack:
+      max: 1
+      action: ban
+      reason: Forbidden Client
    spam:
-      max: 6
-      ttl: 30
+      deny-repeat: true
+      max: 4
+      ttl: 10
+      rate: 0.5
       action: tempban
       reason: Spam
 
@@ -19,32 +30,35 @@ actions:
    ban:
       kick: true
       playerserver:
-       - "ban %player% %reason%""
+       - ban %name% %reason%
       groups:
          default:
           - "bmreload"
    tempban:
       kick: true
       playerserver:
-       - "tempban %player% 2d1s %reason%"
+       - tempban %name% 2d1s %reason%
       groups:
          default:
           - "bmreload"
 
+ipcheck:
+   counter: advertising
+   hide: true
+   whitelist:
+    - 127.0.0.1
+    - 0.0.0.0
+
 patterns:
  - pattern: '§'
-   action: ban
+   counter: hack
    reason: 'Forbidden Client'
    hide: false
    fuzzy: true
  - pattern: '^connected with an .* using MineChat$'
-   action: none
-   reason: ''
    hide: true
    fuzzy: false
  - pattern: '^I.m chatting on my .* using Minecraft Connect.  Check it out, it.s free ..$'
-   action: none
-   reason: ''
    hide: true
    fuzzy: false
  - pattern: 'bad word'

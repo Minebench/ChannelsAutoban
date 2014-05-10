@@ -1,7 +1,7 @@
 package net.zaiyers.ChannelsAutoban;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
@@ -14,35 +14,32 @@ public class ChannelsAutobanAction {
 	/**
 	 * commands to perform on the players server
 	 */
-	private ArrayList<String> playerServerCmds = new ArrayList<String>();
+	private List<String> playerServerCmds;
 	
 	/**
 	 * commands to perform on servergroups
 	 */
-	private HashMap<String, ArrayList<String>> serverGroupCommands = new HashMap<String, ArrayList<String>>();
+	private Map<String, List<String>> serverGroupCommands;
 	
 	/**
 	 * @param cfg
 	 */
 	@SuppressWarnings("unchecked")
-	public ChannelsAutobanAction(HashMap<String, Object> cfg) {
+	public ChannelsAutobanAction(Map<String, Object> cfg) {
 		if (cfg.get("kick") != null) {
-			kick = Boolean.parseBoolean((String) cfg.get("kick"));
+			kick = (Boolean) cfg.get("kick");
 		}
 		if (cfg.get("playerserver") != null) {
-			playerServerCmds = (ArrayList<String>) cfg.get("playerserver");
+			playerServerCmds = (List<String>) cfg.get("playerserver");
 		}
 		if (cfg.get("groups") != null) {
-			serverGroupCommands = (HashMap<String, ArrayList<String>>) cfg.get("groups");
+			serverGroupCommands = (Map<String, List<String>>) cfg.get("groups");
 		}
 	}
 
-	public void execute(ProxiedPlayer p, ChannelsAutobanPattern pattern) {
-		if (kick) {
-			p.disconnect(new TextComponent(pattern.getReason()+" (Autoban)"));
-		}
-		
+	public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {		
 		for (String cmd: playerServerCmds) {
+			cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
 			BungeeRPC.getInstance().sendToBukkit(p.getServer().getInfo(), ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
 		}
 		
@@ -53,10 +50,16 @@ public class ChannelsAutobanAction {
 					ChannelsAutoban.getInstance().getLogger().warning("Unknown server: "+server);
 				} else {
 					for (String cmd: serverGroupCommands.get(group)) {
+						cmd = cmd	.replaceAll("%name%", p.getName())
+									.replaceAll("%reason%", counter.getReason());
 						BungeeRPC.getInstance().sendToBukkit(serverInfo, ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
 					}
 				}
 			}
+		}
+		
+		if (kick) {
+			p.disconnect(new TextComponent(counter.getReason()+" (Autoban)"));
 		}
 	}
 }

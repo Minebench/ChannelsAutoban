@@ -1,5 +1,5 @@
-name: Channels
+name: ChannelsAutoban
 main: net.zaiyers.ChannelsAutoban.ChannelsAutoban
 version: 1.0
 author: zaiyers
-depends: Channels
+depends: [ Channels, BungeeRPC ]

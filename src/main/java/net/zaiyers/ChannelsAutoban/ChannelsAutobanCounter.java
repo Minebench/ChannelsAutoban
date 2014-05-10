@@ -10,10 +10,10 @@ public class ChannelsAutobanCounter {
 	
 	public ChannelsAutobanCounter(HashMap<String, Object> cfg) throws NumberFormatException {
 		if (cfg.get("max") != null) {
-			max = Integer.parseInt((String) cfg.get("max"));
+			max = (Integer) cfg.get("max");
 		}
 		if (cfg.get("ttl") != null) {
-			ttl = Integer.parseInt((String) cfg.get("ttl"));
+			ttl = (Integer) cfg.get("ttl");
 		}
 		if (cfg.get("action") != null) {
 			action = (String) cfg.get("action");

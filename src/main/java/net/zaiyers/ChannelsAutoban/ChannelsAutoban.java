@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import javax.naming.ConfigurationException;
-
 import net.md_5.bungee.BungeeCord;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -60,6 +58,16 @@ public class ChannelsAutoban extends Plugin {
 	private Map<String, List<String>> serverGroups;
 	
 	/**
+	 * special pattern executed when ip matched
+	 */
+	private ChannelsAutobanPattern ippattern;
+	
+	/**
+	 * ip whitelist
+	 */
+	private List<String> ipWhitelist = new ArrayList<String>();
+	
+	/**
 	 * enable plugin
 	 */
 	@SuppressWarnings("unchecked")
@@ -82,23 +90,19 @@ public class ChannelsAutoban extends Plugin {
 				return;
 			}
 		}
-		
-		// register listener
-		getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener());
-		
-		commandSenderName = cfg.getString("commandSender", "Autoban");
+				
+		commandSenderName = cfg.getString("commandsender", "Autoban");
 		serverGroups = (Map<String, List<String>>) cfg.get("servergroups");
 		
 		// load patterns
 		ArrayList<HashMap<String, Object>> patternCfgs = (ArrayList<HashMap<String, Object>>) cfg.get("patterns");
 		
 		for (HashMap<String, Object> patternCfg: patternCfgs) {
-			try {
-				patterns.add(new ChannelsAutobanPattern(patternCfg));
-			} catch (ConfigurationException e) {
-				e.printStackTrace();
-			}
+			patterns.add(new ChannelsAutobanPattern(patternCfg));
 		}
+
+		ippattern = new ChannelsAutobanPattern((HashMap<String, Object>) cfg.get("ipcheck"));
+		ipWhitelist = cfg.getStringList("ipcheck.whitelist");
 		
 		// load counters
 		HashMap<String, HashMap<String, Object>> counterCfgs = (HashMap<String, HashMap<String, Object>>) cfg.get("counters");
@@ -117,6 +121,9 @@ public class ChannelsAutoban extends Plugin {
 		for (String actionName: actionCfgs.keySet()) {
 			actions.put(actionName, new ChannelsAutobanAction(actionCfgs.get(actionName)));
 		}
+		
+		// register listener
+		getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(cfg.getSection("counters.spam")));
 	}
 
 	/**
@@ -125,6 +132,10 @@ public class ChannelsAutoban extends Plugin {
 	 * @throws IOException
 	 */
 	private void createDefaultConfig(File configFile) throws IOException {
+		if (!configFile.getParentFile().exists()) {
+			configFile.getParentFile().mkdirs();
+		}
+		
 		configFile.createNewFile();
 		cfg = ymlCfg.load(new InputStreamReader(getResourceAsStream("config.yml")));
 		ymlCfg.save(cfg, configFile);
@@ -153,6 +164,10 @@ public class ChannelsAutoban extends Plugin {
 	 * @param msg 
 	 */
 	public void increaseCounter(final ProxiedPlayer p, final ChannelsAutobanPattern pattern, final Message msg) {
+		if (pattern.getCounter() == null) {
+			return;
+		}
+		
 		if (violations.get(p.getUUID()) == null) {
 			violations.put(p.getUUID(), new HashMap<String, Integer>());
 		}
@@ -161,28 +176,28 @@ public class ChannelsAutoban extends Plugin {
 		} else {
 			violations.get(p.getUUID()).put(pattern.getCounter(), violations.get(p.getUUID()).get(pattern.getCounter()) + 1 );
 		}
-		
-		// notify
-		TextComponent reasonNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
-		TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"Violationlevel for "+pattern.getCounter()+": "+violations.get(p.getUUID()).get(pattern.getCounter()));
-		for (ProxiedPlayer notify: getProxy().getPlayers()) {			
-			if (notify.hasPermission("autoban.notify")) {
-				notify.sendMessage(reasonNotify);
-				notify.sendMessage(counterNotify);
-			}
-		}
-		
+				
 		// execute
 		ChannelsAutobanCounter counter = counters.get(pattern.getCounter());
 		if (counter == null) {
 			getLogger().warning("No counter named '"+pattern.getCounter()+"' defined.");
 		} else {
-			if (violations.get(p.getUUID()).get(pattern.getCounter()) >= counter.getMax()) {
+			// notify
+			TextComponent reasonNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
+			TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(p.getUUID()).get(pattern.getCounter())+"/"+counter.getMax());
+			for (ProxiedPlayer notify: getProxy().getPlayers()) {			
+				if (notify.hasPermission("autoban.notify")) {
+					notify.sendMessage(reasonNotify);
+					notify.sendMessage(counterNotify);
+				}
+			}
+			
+			if (violations.get(p.getUUID()).get(pattern.getCounter()) >= counter.getMax()) {				
 				ChannelsAutobanAction action = actions.get(counter.getAction());
 				if (action == null) {
 					getLogger().warning("No action named '"+counter.getAction()+"' defined.");
 				} else {
-					action.execute(p, pattern);
+					action.execute(p, counter);
 					return;
 				}
 			}
@@ -192,6 +207,13 @@ public class ChannelsAutoban extends Plugin {
 				public void run() {
 					if (violations.get(p.getUUID()) != null && violations.get(p.getUUID()).get(pattern.getCounter()) != null) {
 						violations.get(p.getUUID()).put(pattern.getCounter(), violations.get(p.getUUID()).get(pattern.getCounter()) - 1);
+						
+						TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(p.getUUID()).get(pattern.getCounter()));
+						for (ProxiedPlayer notify: getProxy().getPlayers()) {			
+							if (notify.hasPermission("autoban.notify")) {
+								notify.sendMessage(counterNotify);
+							}
+						}
 					}
 				}
 				
@@ -201,5 +223,13 @@ public class ChannelsAutoban extends Plugin {
 
 	public List<String> getServerGroup(String group) {
 		return serverGroups.get(group);
+	}
+
+	public ChannelsAutobanPattern getIPPattern() {
+		return ippattern;
+	}
+
+	public List<String> getIPWhitelist() {
+		return ipWhitelist;
 	}
 }
