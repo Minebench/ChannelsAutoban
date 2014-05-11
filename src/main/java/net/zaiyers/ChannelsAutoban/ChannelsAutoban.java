@@ -168,13 +168,14 @@ public class ChannelsAutoban extends Plugin {
 			return;
 		}
 		
-		if (violations.get(p.getUUID()) == null) {
-			violations.put(p.getUUID(), new HashMap<String, Integer>());
+		final String uuid = p.getUniqueId().toString();
+		if (violations.get(uuid) == null) {
+			violations.put(uuid, new HashMap<String, Integer>());
 		}
-		if (violations.get(p.getUUID()).get(pattern.getCounter()) == null) {
-			violations.get(p.getUUID()).put(pattern.getCounter(), 1);
+		if (violations.get(uuid).get(pattern.getCounter()) == null) {
+			violations.get(uuid).put(pattern.getCounter(), 1);
 		} else {
-			violations.get(p.getUUID()).put(pattern.getCounter(), violations.get(p.getUUID()).get(pattern.getCounter()) + 1 );
+			violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) + 1 );
 		}
 				
 		// execute
@@ -184,7 +185,7 @@ public class ChannelsAutoban extends Plugin {
 		} else {
 			// notify
 			TextComponent reasonNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
-			TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(p.getUUID()).get(pattern.getCounter())+"/"+counter.getMax());
+			TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter())+"/"+counter.getMax());
 			for (ProxiedPlayer notify: getProxy().getPlayers()) {			
 				if (notify.hasPermission("autoban.notify")) {
 					notify.sendMessage(reasonNotify);
@@ -192,7 +193,7 @@ public class ChannelsAutoban extends Plugin {
 				}
 			}
 			
-			if (violations.get(p.getUUID()).get(pattern.getCounter()) >= counter.getMax()) {				
+			if (violations.get(uuid).get(pattern.getCounter()) >= counter.getMax()) {				
 				ChannelsAutobanAction action = actions.get(counter.getAction());
 				if (action == null) {
 					getLogger().warning("No action named '"+counter.getAction()+"' defined.");
@@ -205,10 +206,10 @@ public class ChannelsAutoban extends Plugin {
 			// decrease counter
 			getProxy().getScheduler().schedule(this, new Runnable() {
 				public void run() {
-					if (violations.get(p.getUUID()) != null && violations.get(p.getUUID()).get(pattern.getCounter()) != null) {
-						violations.get(p.getUUID()).put(pattern.getCounter(), violations.get(p.getUUID()).get(pattern.getCounter()) - 1);
+					if (violations.get(uuid) != null && violations.get(uuid).get(pattern.getCounter()) != null) {
+						violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) - 1);
 						
-						TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(p.getUUID()).get(pattern.getCounter()));
+						TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter()));
 						for (ProxiedPlayer notify: getProxy().getPlayers()) {			
 							if (notify.hasPermission("autoban.notify")) {
 								notify.sendMessage(counterNotify);

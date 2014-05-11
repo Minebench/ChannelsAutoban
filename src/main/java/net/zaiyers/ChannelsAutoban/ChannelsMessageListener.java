@@ -94,15 +94,16 @@ public class ChannelsMessageListener implements Listener {
 			}
 		}
 		
-		if (!msgHistory.containsKey(p.getUUID())) {
-			msgHistory.put(p.getUUID(), new ArrayList<Message>());
+		final String uuid = p.getUniqueId().toString();
+		if (!msgHistory.containsKey(uuid)) {
+			msgHistory.put(uuid, new ArrayList<Message>());
 		}
 		
 		// check for spam
 		if (rate > 0) {
 			// repetitions
 			if (denyRepeat) {
-				for (Message m: msgHistory.get(p.getUUID())) {
+				for (Message m: msgHistory.get(uuid)) {
 					if (m.getRawMessage().equals(e.getMessage().getRawMessage())) {
 						e.setCancelled(true);
 					}
@@ -110,9 +111,8 @@ public class ChannelsMessageListener implements Listener {
 			}
 			
 			final Message msg = e.getMessage();
-			final String uuid = p.getUUID();
 			if (!e.isCancelled()) {
-				msgHistory.get(p.getUUID()).add(msg);
+				msgHistory.get(uuid).add(msg);
 				
 				// remove from history after ttl seconds
 				ChannelsAutoban.getInstance().getProxy().getScheduler().schedule(ChannelsAutoban.getInstance(), new Runnable() {
@@ -123,7 +123,7 @@ public class ChannelsMessageListener implements Listener {
 				}, ttl, TimeUnit.SECONDS);
 				
 				// check for rate
-				if ( (float) msgHistory.get(p.getUUID()).size() / (float) ttl > rate) {
+				if ( (float) msgHistory.get(uuid).size() / (float) ttl > rate) {
 					ChannelsAutoban.getInstance().increaseCounter(p, spamPattern, e.getMessage());
 				}
 			}
