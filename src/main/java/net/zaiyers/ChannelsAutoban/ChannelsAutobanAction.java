@@ -3,6 +3,7 @@ package net.zaiyers.ChannelsAutoban;
 import java.util.List;
 import java.util.Map;
 
+import net.md_5.bungee.BungeeCord;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
@@ -22,10 +23,22 @@ public class ChannelsAutobanAction {
 	private Map<String, List<String>> serverGroupCommands;
 	
 	/**
+	 * commands to perform locally
+	 */
+	private List<String> localCmds;
+	
+	/**
+	 * perform commands using this guy
+	 */
+	private ChannelsAutobanCommandSender sender;
+	
+	/**
 	 * @param cfg
 	 */
 	@SuppressWarnings("unchecked")
 	public ChannelsAutobanAction(Map<String, Object> cfg) {
+		 new ChannelsAutobanCommandSender((String) cfg.get("commandsender"));
+		
 		if (cfg.get("kick") != null) {
 			kick = (Boolean) cfg.get("kick");
 		}
@@ -34,6 +47,10 @@ public class ChannelsAutobanAction {
 		}
 		if (cfg.get("groups") != null) {
 			serverGroupCommands = (Map<String, List<String>>) cfg.get("groups");
+		}
+		
+		if (cfg.get("local") != null) {
+			localCmds = (List<String>) cfg.get("local");
 		}
 	}
 
@@ -56,6 +73,10 @@ public class ChannelsAutobanAction {
 					}
 				}
 			}
+		}
+		
+		for (String cmd: localCmds) {
+			BungeeCord.getInstance().getPluginManager().dispatchCommand(sender, cmd);
 		}
 		
 		if (kick) {
