@@ -54,7 +54,7 @@ public class ChannelsAutobanAction {
 		}
 	}
 
-	public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {		
+	public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {
 		for (String cmd: playerServerCmds) {
 			cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
 			BungeeRPC.getInstance().sendToBukkit(p.getServer().getInfo(), ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
@@ -76,6 +76,7 @@ public class ChannelsAutobanAction {
 		}
 		
 		for (String cmd: localCmds) {
+            cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
 			BungeeCord.getInstance().getPluginManager().dispatchCommand(sender, cmd);
 		}
 		
