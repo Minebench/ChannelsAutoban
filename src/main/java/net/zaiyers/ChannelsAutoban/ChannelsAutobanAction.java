@@ -64,36 +64,39 @@ public class ChannelsAutobanAction {
 	}
 
 	public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {
+
+        if(notes != null)
+            for(String msg: notes) {
+                msg = msg.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
+                p.sendMessage(TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', msg)));
+            }
         
-        for(String msg: notes) {
-            msg = msg.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
-            p.sendMessage(TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', msg)));
-        }
-        
-		for (String cmd: playerServerCmds) {
-			cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
-			BungeeRPC.getInstance().sendToBukkit(p.getServer().getInfo(), ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
-		}
-		
-		for (String group: serverGroupCommands.keySet()) {
-			for (String server: ChannelsAutoban.getInstance().getServerGroup(group)) {
-				ServerInfo serverInfo = BungeeRPC.getInstance().getProxy().getServerInfo(server);
-				if (serverInfo == null) {
-					ChannelsAutoban.getInstance().getLogger().warning("Unknown server: "+server);
-				} else {
-					for (String cmd: serverGroupCommands.get(group)) {
-						cmd = cmd	.replaceAll("%name%", p.getName())
-									.replaceAll("%reason%", counter.getReason());
-						BungeeRPC.getInstance().sendToBukkit(serverInfo, ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
-					}
-				}
-			}
-		}
-		
-		for (String cmd: localCmds) {
-            cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
-			ProxyServer.getInstance().getPluginManager().dispatchCommand(sender, cmd);
-		}
+        if(playerServerCmds != null)
+            for (String cmd: playerServerCmds) {
+                cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
+                BungeeRPC.getInstance().sendToBukkit(p.getServer().getInfo(), ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
+            }
+        if(serverGroupCommands != null)
+            for (String group: serverGroupCommands.keySet()) {
+                for (String server: ChannelsAutoban.getInstance().getServerGroup(group)) {
+                    ServerInfo serverInfo = BungeeRPC.getInstance().getProxy().getServerInfo(server);
+                    if (serverInfo == null) {
+                        ChannelsAutoban.getInstance().getLogger().warning("Unknown server: "+server);
+                    } else {
+                        for (String cmd: serverGroupCommands.get(group)) {
+                            cmd = cmd	.replaceAll("%name%", p.getName())
+                                    .replaceAll("%reason%", counter.getReason());
+                            BungeeRPC.getInstance().sendToBukkit(serverInfo, ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
+                        }
+                    }
+                }
+            }
+
+        if(localCmds != null)
+            for (String cmd: localCmds) {
+                cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
+                ProxyServer.getInstance().getPluginManager().dispatchCommand(sender, cmd);
+            }
 		
 		if (kick) {
 			p.disconnect(new TextComponent(counter.getReason()+" (Autoban)"));
