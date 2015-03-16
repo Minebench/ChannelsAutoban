@@ -66,6 +66,7 @@ public class ChannelsAutobanAction {
 	public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {
         
         for(String msg: notes) {
+            msg = msg.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
             p.sendMessage(TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', msg)));
         }
         
