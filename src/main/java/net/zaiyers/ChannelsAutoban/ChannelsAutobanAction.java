@@ -3,6 +3,7 @@ package net.zaiyers.ChannelsAutoban;
 import java.util.List;
 import java.util.Map;
 
+import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
@@ -26,6 +27,11 @@ public class ChannelsAutobanAction {
 	 * commands to perform locally
 	 */
 	private List<String> localCmds;
+
+    /**
+     * messages to send to the player
+     */
+    private List<String> notes;
 	
 	/**
 	 * perform commands using this guy
@@ -42,6 +48,9 @@ public class ChannelsAutobanAction {
 		if (cfg.get("kick") != null) {
 			kick = (Boolean) cfg.get("kick");
 		}
+        if (cfg.get("note") != null) {
+            notes = (List<String>) cfg.get("note");
+        }
 		if (cfg.get("playerserver") != null) {
 			playerServerCmds = (List<String>) cfg.get("playerserver");
 		}
@@ -55,6 +64,11 @@ public class ChannelsAutobanAction {
 	}
 
 	public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {
+        
+        for(String msg: notes) {
+            p.sendMessage(TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', msg)));
+        }
+        
 		for (String cmd: playerServerCmds) {
 			cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
 			BungeeRPC.getInstance().sendToBukkit(p.getServer().getInfo(), ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
