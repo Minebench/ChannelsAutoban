@@ -3,7 +3,7 @@ package net.zaiyers.ChannelsAutoban;
 import java.util.List;
 import java.util.Map;
 
-import net.md_5.bungee.BungeeCord;
+import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
@@ -77,7 +77,7 @@ public class ChannelsAutobanAction {
 		
 		for (String cmd: localCmds) {
             cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
-			BungeeCord.getInstance().getPluginManager().dispatchCommand(sender, cmd);
+			ProxyServer.getInstance().getPluginManager().dispatchCommand(sender, cmd);
 		}
 		
 		if (kick) {
