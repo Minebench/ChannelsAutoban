@@ -43,7 +43,7 @@ public class ChannelsAutobanAction {
 	 */
 	@SuppressWarnings("unchecked")
 	public ChannelsAutobanAction(Map<String, Object> cfg) {
-		 new ChannelsAutobanCommandSender((String) cfg.get("commandsender"));
+		sender = new ChannelsAutobanCommandSender(ChannelsAutoban.getInstance().getCommandSenderName());
 		
 		if (cfg.get("kick") != null) {
 			kick = (Boolean) cfg.get("kick");
@@ -56,8 +56,7 @@ public class ChannelsAutobanAction {
 		}
 		if (cfg.get("groups") != null) {
 			serverGroupCommands = (Map<String, List<String>>) cfg.get("groups");
-		}
-		
+		}		
 		if (cfg.get("local") != null) {
 			localCmds = (List<String>) cfg.get("local");
 		}
