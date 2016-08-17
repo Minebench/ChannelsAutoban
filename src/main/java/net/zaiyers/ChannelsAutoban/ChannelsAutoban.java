@@ -55,7 +55,7 @@ public class ChannelsAutoban extends Plugin {
 	/**
 	 * list of servergroups
 	 */
-	private Map<String, List<String>> serverGroups;
+	private Configuration serverGroups;
 	
 	/**
 	 * special pattern executed when ip matched
@@ -92,7 +92,7 @@ public class ChannelsAutoban extends Plugin {
 		}
 				
 		commandSenderName = cfg.getString("commandsender", "Autoban");
-		serverGroups = (Map<String, List<String>>) cfg.get("servergroups");
+		serverGroups = cfg.getSection("servergroups");
 		
 		// load patterns
 		ArrayList<HashMap<String, Object>> patternCfgs = (ArrayList<HashMap<String, Object>>) cfg.get("patterns");
@@ -159,7 +159,7 @@ public class ChannelsAutoban extends Plugin {
 	
 	/**
 	 * increase violation counter
-	 * @param sender
+	 * @param p The sender
 	 * @param pattern
 	 * @param msg 
 	 */
@@ -223,7 +223,7 @@ public class ChannelsAutoban extends Plugin {
 	}
 
 	public List<String> getServerGroup(String group) {
-		return serverGroups.get(group);
+		return serverGroups.getStringList(group);
 	}
 
 	public ChannelsAutobanPattern getIPPattern() {
