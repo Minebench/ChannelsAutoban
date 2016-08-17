@@ -8,6 +8,7 @@ import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
+import net.md_5.bungee.config.Configuration;
 import net.zaiyers.BungeeRPC.BungeeRPC;
 
 public class ChannelsAutobanAction {
@@ -21,7 +22,7 @@ public class ChannelsAutobanAction {
 	/**
 	 * commands to perform on servergroups
 	 */
-	private Map<String, List<String>> serverGroupCommands;
+	private Configuration serverGroupCommands;
 	
 	/**
 	 * commands to perform locally
@@ -39,26 +40,26 @@ public class ChannelsAutobanAction {
 	private ChannelsAutobanCommandSender sender;
 	
 	/**
-	 * @param cfg
-	 */
+     * @param cfg
+     */
 	@SuppressWarnings("unchecked")
-	public ChannelsAutobanAction(Map<String, Object> cfg) {
+	public ChannelsAutobanAction(Configuration cfg) {
 		sender = new ChannelsAutobanCommandSender(ChannelsAutoban.getInstance().getCommandSenderName());
 		
 		if (cfg.get("kick") != null) {
-			kick = (Boolean) cfg.get("kick");
+			kick = cfg.getBoolean("kick");
 		}
         if (cfg.get("note") != null) {
-            notes = (List<String>) cfg.get("note");
+            notes = cfg.getStringList("note");
         }
 		if (cfg.get("playerserver") != null) {
-			playerServerCmds = (List<String>) cfg.get("playerserver");
+			playerServerCmds = cfg.getStringList("playerserver");
 		}
 		if (cfg.get("groups") != null) {
-			serverGroupCommands = (Map<String, List<String>>) cfg.get("groups");
+			serverGroupCommands = cfg.getSection("groups");
 		}		
 		if (cfg.get("local") != null) {
-			localCmds = (List<String>) cfg.get("local");
+			localCmds = cfg.getStringList("local");
 		}
 	}
 
@@ -76,13 +77,13 @@ public class ChannelsAutobanAction {
                 BungeeRPC.getInstance().sendToBukkit(p.getServer().getInfo(), ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
             }
         if(serverGroupCommands != null)
-            for (String group: serverGroupCommands.keySet()) {
+            for (String group: serverGroupCommands.getKeys()) {
                 for (String server: ChannelsAutoban.getInstance().getServerGroup(group)) {
                     ServerInfo serverInfo = BungeeRPC.getInstance().getProxy().getServerInfo(server);
                     if (serverInfo == null) {
                         ChannelsAutoban.getInstance().getLogger().warning("Unknown server: "+server);
                     } else {
-                        for (String cmd: serverGroupCommands.get(group)) {
+                        for (String cmd: serverGroupCommands.getStringList(group)) {
                             cmd = cmd	.replaceAll("%name%", p.getName())
                                     .replaceAll("%reason%", counter.getReason());
                             BungeeRPC.getInstance().sendToBukkit(serverInfo, ChannelsAutoban.getInstance().getCommandSenderName(), cmd);

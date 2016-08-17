@@ -1,5 +1,7 @@
 package net.zaiyers.ChannelsAutoban;
 
+import net.md_5.bungee.config.Configuration;
+
 import java.util.HashMap;
 
 public class ChannelsAutobanCounter {
@@ -8,18 +10,18 @@ public class ChannelsAutobanCounter {
 	private String action;
 	private String reason = "";
 	
-	public ChannelsAutobanCounter(HashMap<String, Object> cfg) throws NumberFormatException {
+	public ChannelsAutobanCounter(Configuration cfg) throws NumberFormatException {
 		if (cfg.get("max") != null) {
-			max = (Integer) cfg.get("max");
+			max = cfg.getInt("max");
 		}
 		if (cfg.get("ttl") != null) {
-			ttl = (Integer) cfg.get("ttl");
+			ttl = cfg.getInt("ttl");
 		}
 		if (cfg.get("action") != null) {
-			action = (String) cfg.get("action");
+			action = cfg.getString("action");
 		}
 		if (cfg.get("reason") != null) {
-			reason = (String) cfg.get("reason");
+			reason = cfg.getString("reason");
 		}
 	}
 	

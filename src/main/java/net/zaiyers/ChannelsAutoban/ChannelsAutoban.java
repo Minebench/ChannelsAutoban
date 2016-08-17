@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -101,15 +102,19 @@ public class ChannelsAutoban extends Plugin {
 			patterns.add(new ChannelsAutobanPattern(patternCfg));
 		}
 
-		ippattern = new ChannelsAutobanPattern((HashMap<String, Object>) cfg.get("ipcheck"));
+		Map<String, Object> ipCheck = new LinkedHashMap<String, Object>();
+		for (String key : cfg.getSection("ipcheck").getKeys()) {
+			ipCheck.put(key, cfg.get("ipcheck." + key));
+		}
+		ippattern = new ChannelsAutobanPattern(ipCheck);
 		ipWhitelist = cfg.getStringList("ipcheck.whitelist");
 		
 		// load counters
-		HashMap<String, HashMap<String, Object>> counterCfgs = (HashMap<String, HashMap<String, Object>>) cfg.get("counters");
+		Configuration counterCfgs =  cfg.getSection("counters");
 		
-		for (String counterName: counterCfgs.keySet()) {
+		for (String counterName: counterCfgs.getKeys()) {
 			try {
-				counters.put(counterName, new ChannelsAutobanCounter(counterCfgs.get(counterName)));
+				counters.put(counterName, new ChannelsAutobanCounter(counterCfgs.getSection(counterName)));
 			} catch (NumberFormatException e) {
 				getLogger().warning("Could not load counter "+counterName+" due to invalid numbers in configuration.");
 				e.printStackTrace();
@@ -117,9 +122,9 @@ public class ChannelsAutoban extends Plugin {
 		}
 		
 		// load actions
-		HashMap<String, HashMap<String, Object>> actionCfgs = (HashMap<String, HashMap<String, Object>>) cfg.get("actions");
-		for (String actionName: actionCfgs.keySet()) {
-			actions.put(actionName, new ChannelsAutobanAction(actionCfgs.get(actionName)));
+		Configuration actionCfgs = cfg.getSection("actions");
+		for (String actionName: actionCfgs.getKeys()) {
+			actions.put(actionName, new ChannelsAutobanAction(actionCfgs.getSection(actionName)));
 		}
 		
 		// register listener

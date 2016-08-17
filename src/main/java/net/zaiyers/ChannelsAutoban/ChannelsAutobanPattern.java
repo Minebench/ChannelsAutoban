@@ -1,6 +1,6 @@
 package net.zaiyers.ChannelsAutoban;
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public class ChannelsAutobanPattern {	
@@ -23,7 +23,7 @@ public class ChannelsAutobanPattern {
 	 * construct object from config
 	 * @param patternCfg
 	 */
-	public ChannelsAutobanPattern(HashMap<String, Object> cfg) {
+	public ChannelsAutobanPattern(Map<String, Object> cfg) {
 		boolean fuzzy = false;
 		if (cfg.get("fuzzy") != null) {
 			fuzzy = (Boolean) cfg.get("fuzzy");
@@ -31,7 +31,7 @@ public class ChannelsAutobanPattern {
 		
 		if (cfg.get("pattern") != null) {
 			if (fuzzy) {
-				pattern = Pattern.compile(".*?" + ((String) cfg.get("pattern")) + ".*?", Pattern.CASE_INSENSITIVE );
+				pattern = Pattern.compile(".*?" + cfg.get("pattern") + ".*?", Pattern.CASE_INSENSITIVE );
 			} else {
 				pattern = Pattern.compile((String) cfg.get("pattern"));
 			}
@@ -44,7 +44,7 @@ public class ChannelsAutobanPattern {
 			hide = (Boolean) cfg.get("hide");
 		}
 	}
-	
+
 	/**
 	 * get name of counter
 	 * @return action
