@@ -70,22 +70,28 @@ public class ChannelsMessageListener implements Listener {
             return;
         }
 
-        for (ChannelsAutobanPattern pattern: ChannelsAutoban.getInstance().getPatterns()) {
-            if (pattern.matches(e.getMessage().getRawMessage())) {
+        for (ChannelsAutobanPattern pattern : ChannelsAutoban.getInstance().getPatterns()) {
+            Matcher matcher = pattern.matcher(e.getMessage().getRawMessage());
+            if (matcher.matches()) {
                 ChannelsAutoban.getInstance().increaseCounter(p, pattern, e.getMessage());
                 if (pattern.doHide()) {
                     e.setCancelled(true);
+                } else if (pattern.getReplace() != null) {
+                    e.getMessage().setRawMessage(matcher.replaceAll(pattern.getReplace()));
                 }
             }
         }
 
-        if (containsIP(e.getMessage())) {
+        Matcher ipMatcher = IPPattern.matcher(e.getMessage().getRawMessage());
+        if (ipMatcher.matches()) {
             String host = getHost(e.getMessage().getRawMessage());
             int port = getPort(e.getMessage().getRawMessage());
 
             if (serverAlive(host, port)) {
                 if (ChannelsAutoban.getInstance().getIPPattern().doHide()) {
                     e.setCancelled(true);
+                } else if ((ChannelsAutoban.getInstance().getIPPattern().getReplace() != null)) {
+                    e.getMessage().setRawMessage(ipMatcher.replaceAll((ChannelsAutoban.getInstance().getIPPattern().getReplace())));
                 }
 
                 if (!ChannelsAutoban.getInstance().getIPWhitelist().contains(host)) {
@@ -144,17 +150,6 @@ public class ChannelsMessageListener implements Listener {
             ChannelsAutoban.getInstance().getProxy().getLogger().info("[Autoban] Host "+host+":"+port+" is NOT reachable.");
         }
         return false;
-    }
-
-    /**
-     * check if message contains an ip
-     * @param msg
-     * @return
-     */
-    private static boolean containsIP(Message msg) {
-        if (IPPattern.matcher(msg.getRawMessage()).matches()) {
-            return true;
-        } else return false;
     }
 
     /**

@@ -1,6 +1,7 @@
 package net.zaiyers.ChannelsAutoban;
 
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ChannelsAutobanPattern {
@@ -13,6 +14,11 @@ public class ChannelsAutobanPattern {
      * hide messages matching this pattern
      */
     private boolean hide = false;
+
+    /**
+     * replace the matched pattern?
+     */
+    private String replace;
 
     /**
      * name of the counter
@@ -43,6 +49,9 @@ public class ChannelsAutobanPattern {
         if (cfg.get("hide") != null) {
             hide = (Boolean) cfg.get("hide");
         }
+        if (cfg.get("replace") != null) {
+            replace = (String) cfg.get("replace");
+        }
     }
 
     /**
@@ -62,11 +71,19 @@ public class ChannelsAutobanPattern {
     }
 
     /**
-     * check if string matches pattern
-     * @param msg
-     * @return true if string matches pattern
+     * should we replace it with something? if so with what?
+     * @return replace
      */
-    public boolean matches(String msg) {
-        return pattern.matcher(msg).matches();
+    public String getReplace() {
+        return replace;
+    }
+
+    /**
+     * get a new Matcher from this pattern
+     * @param msg the message to match against
+     * @return the Matcher
+     */
+    public Matcher matcher(String msg) {
+        return pattern.matcher(msg);
     }
 }

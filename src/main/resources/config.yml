@@ -44,7 +44,8 @@ actions:
 
 ipcheck:
    counter: advertising
-   hide: true
+   hide: false
+   replace: "w.x.y.z"
    whitelist:
     - 127.0.0.1
     - 0.0.0.0
