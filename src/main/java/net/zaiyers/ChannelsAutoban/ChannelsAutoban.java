@@ -18,6 +18,7 @@ import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.config.ConfigurationProvider;
 import net.md_5.bungee.config.YamlConfiguration;
+import net.zaiyers.BungeeRPC.BungeeRPC;
 import net.zaiyers.Channels.message.Message;
 
 public class ChannelsAutoban extends Plugin {
@@ -69,10 +70,19 @@ public class ChannelsAutoban extends Plugin {
     private List<String> ipWhitelist = new ArrayList<String>();
 
     /**
+     * BungeeRPC plugin
+     */
+    private BungeeRPC bungeeRpc;
+
+    /**
      * enable plugin
      */
     @SuppressWarnings("unchecked")
     public void onEnable() {
+        if (getProxy().getPluginManager().getPlugin("BungeeRPC") != null) {
+            bungeeRpc = (BungeeRPC) getProxy().getPluginManager().getPlugin("BungeeRPC");
+        }
+
         configFile = new File(this.getDataFolder()+File.separator+"config.yml");
         if (!configFile.exists()) {
             try {
@@ -124,11 +134,11 @@ public class ChannelsAutoban extends Plugin {
         // load actions
         Configuration actionCfgs = cfg.getSection("actions");
         for (String actionName: actionCfgs.getKeys()) {
-            actions.put(actionName, new ChannelsAutobanAction(actionCfgs.getSection(actionName)));
+            actions.put(actionName, new ChannelsAutobanAction(this, actionCfgs.getSection(actionName)));
         }
 
         // register listener
-        getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(cfg.getSection("counters.spam")));
+        getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(this));
     }
 
     /**
@@ -237,5 +247,21 @@ public class ChannelsAutoban extends Plugin {
 
     public List<String> getIPWhitelist() {
         return ipWhitelist;
+    }
+
+    /**
+     * get the optional BungeeRPC dependency
+     * @return BungeeRPC or <tt>null</tt> if it isn't installed
+     */
+    BungeeRPC getBungeeRpc() {
+        return bungeeRpc;
+    }
+
+    /**
+     * get the plugin's config
+     * @return the plugin's config
+     */
+    public Configuration getConfig() {
+        return cfg;
     }
 }

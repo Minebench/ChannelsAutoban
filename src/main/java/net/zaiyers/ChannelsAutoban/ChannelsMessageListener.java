@@ -19,6 +19,8 @@ import net.zaiyers.Channels.message.Message;
 public class ChannelsMessageListener implements Listener {
     private static final Pattern IPPattern = Pattern.compile(".*?([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})(:[0-9]{3,5}|).*?");
 
+    private final ChannelsAutoban plugin;
+
     /**
      * remember last messages until ttl runs out
      */
@@ -44,10 +46,9 @@ public class ChannelsMessageListener implements Listener {
      */
     private boolean denyRepeat = false;
 
-    /**
-     * @param spamCfg
-     */
-    public ChannelsMessageListener(Configuration spamCfg) {
+    public ChannelsMessageListener(ChannelsAutoban plugin) {
+        this.plugin = plugin;
+        Configuration spamCfg = plugin.getConfig().getSection("counters.spam");
         if (spamCfg != null) {
             ttl = spamCfg.getInt("ttl");
             rate = spamCfg.getFloat("rate");
@@ -70,10 +71,10 @@ public class ChannelsMessageListener implements Listener {
             return;
         }
 
-        for (ChannelsAutobanPattern pattern : ChannelsAutoban.getInstance().getPatterns()) {
+        for (ChannelsAutobanPattern pattern : plugin.getPatterns()) {
             Matcher matcher = pattern.matcher(e.getMessage().getRawMessage());
             if (matcher.matches()) {
-                ChannelsAutoban.getInstance().increaseCounter(p, pattern, e.getMessage());
+                plugin.increaseCounter(p, pattern, e.getMessage());
                 if (pattern.doHide()) {
                     e.setCancelled(true);
                 } else if (pattern.getReplace() != null) {
@@ -88,14 +89,14 @@ public class ChannelsMessageListener implements Listener {
             int port = getPort(e.getMessage().getRawMessage());
 
             if (serverAlive(host, port)) {
-                if (ChannelsAutoban.getInstance().getIPPattern().doHide()) {
+                if (plugin.getIPPattern().doHide()) {
                     e.setCancelled(true);
-                } else if ((ChannelsAutoban.getInstance().getIPPattern().getReplace() != null)) {
-                    e.getMessage().setRawMessage(ipMatcher.replaceAll((ChannelsAutoban.getInstance().getIPPattern().getReplace())));
+                } else if ((plugin.getIPPattern().getReplace() != null)) {
+                    e.getMessage().setRawMessage(ipMatcher.replaceAll((plugin.getIPPattern().getReplace())));
                 }
 
-                if (!ChannelsAutoban.getInstance().getIPWhitelist().contains(host)) {
-                    ChannelsAutoban.getInstance().increaseCounter(p, ChannelsAutoban.getInstance().getIPPattern(), e.getMessage());
+                if (!plugin.getIPWhitelist().contains(host)) {
+                    plugin.increaseCounter(p, plugin.getIPPattern(), e.getMessage());
                 }
             }
         }
@@ -121,7 +122,7 @@ public class ChannelsMessageListener implements Listener {
                 msgHistory.get(uuid).add(msg);
 
                 // remove from history after ttl seconds
-                ChannelsAutoban.getInstance().getProxy().getScheduler().schedule(ChannelsAutoban.getInstance(), new Runnable() {
+                plugin.getProxy().getScheduler().schedule(plugin, new Runnable() {
                     public void run() {
                         msgHistory.get(uuid).remove(msg);
                     }
@@ -130,7 +131,7 @@ public class ChannelsMessageListener implements Listener {
 
                 // check for rate
                 if ( (float) msgHistory.get(uuid).size() / (float) ttl > rate) {
-                    ChannelsAutoban.getInstance().increaseCounter(p, spamPattern, e.getMessage());
+                    plugin.increaseCounter(p, spamPattern, e.getMessage());
                 }
             }
         }
@@ -143,11 +144,11 @@ public class ChannelsMessageListener implements Listener {
                 Socket s = new Socket();
                 s.connect(sockaddr, 250);
                 s.close();
-                ChannelsAutoban.getInstance().getProxy().getLogger().info("[Autoban] Host "+host+":"+port+" is reachable.");
+                plugin.getProxy().getLogger().info("[Autoban] Host "+host+":"+port+" is reachable.");
                 return true;
             }
         } catch (IOException e) {
-            ChannelsAutoban.getInstance().getProxy().getLogger().info("[Autoban] Host "+host+":"+port+" is NOT reachable.");
+            plugin.getProxy().getLogger().info("[Autoban] Host "+host+":"+port+" is NOT reachable.");
         }
         return false;
     }
