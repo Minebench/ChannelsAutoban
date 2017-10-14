@@ -3,12 +3,15 @@ package net.zaiyers.ChannelsAutoban;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheBuilderSpec;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.config.Configuration;
@@ -24,7 +27,9 @@ public class ChannelsMessageListener implements Listener {
     /**
      * remember last messages until ttl runs out
      */
-    private HashMap<String, ArrayList<Message>> msgHistory = new HashMap<String, ArrayList<Message>>();
+    private Map<UUID, Cache<String, Message>> msgHistory = new HashMap<>();
+
+    private final CacheBuilderSpec spamCacheSpec;
 
     /**
      * delete from history after tll seconds
@@ -58,6 +63,7 @@ public class ChannelsMessageListener implements Listener {
             spamPatternCfg.put("counter", "spam");
             spamPattern = new ChannelsAutobanPattern(spamPatternCfg);
         }
+        spamCacheSpec = CacheBuilderSpec.parse((ttl > 0 ? ",expireAfterWrite=" + ttl + "s" : ""));
     }
 
     @EventHandler
@@ -101,36 +107,28 @@ public class ChannelsMessageListener implements Listener {
             }
         }
 
-        final String uuid = p.getUniqueId().toString();
-        if (!msgHistory.containsKey(uuid)) {
-            msgHistory.put(uuid, new ArrayList<Message>());
-        }
-
         // check for spam
         if (rate > 0) {
+            final UUID uuid = p.getUniqueId();
+
+            Cache<String, Message> senderCache = msgHistory.get(uuid);
             // repetitions
-            if (denyRepeat) {
-                for (Message m: msgHistory.get(uuid)) {
-                    if (m.getRawMessage().equals(e.getMessage().getRawMessage())) {
-                        e.setCancelled(true);
-                    }
-                }
+            if (denyRepeat
+                    && senderCache != null
+                    && senderCache.size() > 0
+                    && senderCache.getIfPresent(e.getMessage().getRawMessage().toLowerCase()) != null) {
+                e.setCancelled(true);
             }
 
-            final Message msg = e.getMessage();
             if (!e.isCancelled()) {
-                msgHistory.get(uuid).add(msg);
-
-                // remove from history after ttl seconds
-                plugin.getProxy().getScheduler().schedule(plugin, new Runnable() {
-                    public void run() {
-                        msgHistory.get(uuid).remove(msg);
-                    }
-
-                }, ttl, TimeUnit.SECONDS);
+                if (senderCache == null) {
+                    senderCache = CacheBuilder.from(spamCacheSpec).build();
+                    msgHistory.put(uuid, senderCache);
+                }
+                senderCache.put(e.getMessage().getRawMessage().toLowerCase(), e.getMessage());
 
                 // check for rate
-                if ( (float) msgHistory.get(uuid).size() / (float) ttl > rate) {
+                if ((float) senderCache.size() / (float) ttl > rate) {
                     plugin.increaseCounter(p, spamPattern, e.getMessage());
                 }
             }
