@@ -12,58 +12,58 @@ import net.md_5.bungee.config.Configuration;
 import net.zaiyers.BungeeRPC.BungeeRPC;
 
 public class ChannelsAutobanAction {
-	private boolean kick = false;
-	
-	/**
-	 * commands to perform on the players server
-	 */
-	private List<String> playerServerCmds;
-	
-	/**
-	 * commands to perform on servergroups
-	 */
-	private Configuration serverGroupCommands;
-	
-	/**
-	 * commands to perform locally
-	 */
-	private List<String> localCmds;
+    private boolean kick = false;
+
+    /**
+     * commands to perform on the players server
+     */
+    private List<String> playerServerCmds;
+
+    /**
+     * commands to perform on servergroups
+     */
+    private Configuration serverGroupCommands;
+
+    /**
+     * commands to perform locally
+     */
+    private List<String> localCmds;
 
     /**
      * messages to send to the player
      */
     private List<String> notes;
-	
-	/**
-	 * perform commands using this guy
-	 */
-	private ChannelsAutobanCommandSender sender;
-	
-	/**
+
+    /**
+     * perform commands using this guy
+     */
+    private ChannelsAutobanCommandSender sender;
+
+    /**
      * @param cfg
      */
-	@SuppressWarnings("unchecked")
-	public ChannelsAutobanAction(Configuration cfg) {
-		sender = new ChannelsAutobanCommandSender(ChannelsAutoban.getInstance().getCommandSenderName());
-		
-		if (cfg.get("kick") != null) {
-			kick = cfg.getBoolean("kick");
-		}
+    @SuppressWarnings("unchecked")
+    public ChannelsAutobanAction(Configuration cfg) {
+        sender = new ChannelsAutobanCommandSender(ChannelsAutoban.getInstance().getCommandSenderName());
+
+        if (cfg.get("kick") != null) {
+            kick = cfg.getBoolean("kick");
+        }
         if (cfg.get("note") != null) {
             notes = cfg.getStringList("note");
         }
-		if (cfg.get("playerserver") != null) {
-			playerServerCmds = cfg.getStringList("playerserver");
-		}
-		if (cfg.get("groups") != null) {
-			serverGroupCommands = cfg.getSection("groups");
-		}		
-		if (cfg.get("local") != null) {
-			localCmds = cfg.getStringList("local");
-		}
-	}
+        if (cfg.get("playerserver") != null) {
+            playerServerCmds = cfg.getStringList("playerserver");
+        }
+        if (cfg.get("groups") != null) {
+            serverGroupCommands = cfg.getSection("groups");
+        }
+        if (cfg.get("local") != null) {
+            localCmds = cfg.getStringList("local");
+        }
+    }
 
-	public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {
+    public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {
 
         if(notes != null)
             for(String msg: notes) {
@@ -84,7 +84,7 @@ public class ChannelsAutobanAction {
                         ChannelsAutoban.getInstance().getLogger().warning("Unknown server: "+server);
                     } else {
                         for (String cmd: serverGroupCommands.getStringList(group)) {
-                            cmd = cmd	.replaceAll("%name%", p.getName())
+                            cmd = cmd    .replaceAll("%name%", p.getName())
                                     .replaceAll("%reason%", counter.getReason());
                             BungeeRPC.getInstance().sendToBukkit(serverInfo, ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
                         }
@@ -97,9 +97,9 @@ public class ChannelsAutobanAction {
                 cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
                 ProxyServer.getInstance().getPluginManager().dispatchCommand(sender, cmd);
             }
-		
-		if (kick) {
-			p.disconnect(new TextComponent(counter.getReason()+" (Autoban)"));
-		}
-	}
+
+        if (kick) {
+            p.disconnect(new TextComponent(counter.getReason()+" (Autoban)"));
+        }
+    }
 }

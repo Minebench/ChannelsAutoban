@@ -21,221 +21,221 @@ import net.md_5.bungee.config.YamlConfiguration;
 import net.zaiyers.Channels.message.Message;
 
 public class ChannelsAutoban extends Plugin {
-	/**
-	 * configuration
-	 */
-	private Configuration cfg;
-	private final static ConfigurationProvider ymlCfg = ConfigurationProvider.getProvider( YamlConfiguration.class );
-	private File configFile; 
-	
-	/**
-	 * patterns to look for
-	 */
-	private List<ChannelsAutobanPattern> patterns = new ArrayList<ChannelsAutobanPattern>();
-	
-	/**
-	 * counter configurations
-	 */
-	private HashMap<String, ChannelsAutobanCounter> counters = new HashMap<String, ChannelsAutobanCounter>();
-	
-	/**
-	 * counter values
-	 */
-	private Map<String, HashMap<String, Integer>> violations = new HashMap<String, HashMap<String, Integer>>();
-	
-	/**
-	 * action configurations
-	 */
-	private HashMap<String, ChannelsAutobanAction> actions = new HashMap<String, ChannelsAutobanAction>(); 
-	
-	/**
-	 * name of commandsender
-	 */
-	private String commandSenderName;
-	
-	/**
-	 * list of servergroups
-	 */
-	private Configuration serverGroups;
-	
-	/**
-	 * special pattern executed when ip matched
-	 */
-	private ChannelsAutobanPattern ippattern;
-	
-	/**
-	 * ip whitelist
-	 */
-	private List<String> ipWhitelist = new ArrayList<String>();
-	
-	/**
-	 * enable plugin
-	 */
-	@SuppressWarnings("unchecked")
-	public void onEnable() {
-		configFile = new File(this.getDataFolder()+File.separator+"config.yml");
-		if (!configFile.exists()) {
-			try {
-				createDefaultConfig(configFile);
-			} catch (IOException e) {
-				e.printStackTrace();
-				getLogger().severe("Unable to create configuration.");
-				return;
-			}
-		} else {
-			try {
-				cfg = ConfigurationProvider.getProvider( YamlConfiguration.class ).load( configFile );
-			} catch (IOException e) {
-				getLogger().severe("Unable to load configuration.");
-				e.printStackTrace();
-				return;
-			}
-		}
-				
-		commandSenderName = cfg.getString("commandsender", "Autoban");
-		serverGroups = cfg.getSection("servergroups");
-		
-		// load patterns
-		ArrayList<HashMap<String, Object>> patternCfgs = (ArrayList<HashMap<String, Object>>) cfg.get("patterns");
-		
-		for (HashMap<String, Object> patternCfg: patternCfgs) {
-			patterns.add(new ChannelsAutobanPattern(patternCfg));
-		}
+    /**
+     * configuration
+     */
+    private Configuration cfg;
+    private final static ConfigurationProvider ymlCfg = ConfigurationProvider.getProvider( YamlConfiguration.class );
+    private File configFile;
 
-		Map<String, Object> ipCheck = new LinkedHashMap<String, Object>();
-		for (String key : cfg.getSection("ipcheck").getKeys()) {
-			ipCheck.put(key, cfg.get("ipcheck." + key));
-		}
-		ippattern = new ChannelsAutobanPattern(ipCheck);
-		ipWhitelist = cfg.getStringList("ipcheck.whitelist");
-		
-		// load counters
-		Configuration counterCfgs =  cfg.getSection("counters");
-		
-		for (String counterName: counterCfgs.getKeys()) {
-			try {
-				counters.put(counterName, new ChannelsAutobanCounter(counterCfgs.getSection(counterName)));
-			} catch (NumberFormatException e) {
-				getLogger().warning("Could not load counter "+counterName+" due to invalid numbers in configuration.");
-				e.printStackTrace();
-			}
-		}
-		
-		// load actions
-		Configuration actionCfgs = cfg.getSection("actions");
-		for (String actionName: actionCfgs.getKeys()) {
-			actions.put(actionName, new ChannelsAutobanAction(actionCfgs.getSection(actionName)));
-		}
-		
-		// register listener
-		getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(cfg.getSection("counters.spam")));
-	}
+    /**
+     * patterns to look for
+     */
+    private List<ChannelsAutobanPattern> patterns = new ArrayList<ChannelsAutobanPattern>();
 
-	/**
-	 * create default configuration
-	 * @param configFile
-	 * @throws IOException
-	 */
-	private void createDefaultConfig(File configFile) throws IOException {
-		if (!configFile.getParentFile().exists()) {
-			configFile.getParentFile().mkdirs();
-		}
-		
-		configFile.createNewFile();
-		cfg = ymlCfg.load(new InputStreamReader(getResourceAsStream("config.yml")));
-		ymlCfg.save(cfg, configFile);
-	}
+    /**
+     * counter configurations
+     */
+    private HashMap<String, ChannelsAutobanCounter> counters = new HashMap<String, ChannelsAutobanCounter>();
 
-	/**
-	 * get myself
-	 * @return plugin
-	 */
-	public static ChannelsAutoban getInstance() {
-		return (ChannelsAutoban) ProxyServer.getInstance().getPluginManager().getPlugin("ChannelsAutoban");
-	}
-	
-	public List<ChannelsAutobanPattern> getPatterns() {
-		return patterns;
-	}
-	
-	public String getCommandSenderName() {
-		return commandSenderName;
-	}
-	
-	/**
-	 * increase violation counter
-	 * @param p The sender
-	 * @param pattern
-	 * @param msg 
-	 */
-	public void increaseCounter(final ProxiedPlayer p, final ChannelsAutobanPattern pattern, final Message msg) {
-		if (pattern.getCounter() == null) {
-			return;
-		}
-		
-		final String uuid = p.getUniqueId().toString();
-		if (violations.get(uuid) == null) {
-			violations.put(uuid, new HashMap<String, Integer>());
-		}
-		if (violations.get(uuid).get(pattern.getCounter()) == null) {
-			violations.get(uuid).put(pattern.getCounter(), 1);
-		} else {
-			violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) + 1 );
-		}
-				
-		// execute
-		ChannelsAutobanCounter counter = counters.get(pattern.getCounter());
-		if (counter == null) {
-			getLogger().warning("No counter named '"+pattern.getCounter()+"' defined.");
-		} else {
-			// notify
-			TextComponent reasonNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
-			TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter())+"/"+counter.getMax());
-			for (ProxiedPlayer notify: getProxy().getPlayers()) {			
-				if (notify.hasPermission("autoban.notify")) {
-					notify.sendMessage(reasonNotify);
-					notify.sendMessage(counterNotify);
-				}
-			}
-			
-			if (violations.get(uuid).get(pattern.getCounter()) >= counter.getMax()) {				
-				ChannelsAutobanAction action = actions.get(counter.getAction());
-				if (action == null) {
-					getLogger().warning("No action named '"+counter.getAction()+"' defined.");
-				} else {
-					action.execute(p, counter);
-					return;
-				}
-			}
-			
-			// decrease counter
-			getProxy().getScheduler().schedule(this, new Runnable() {
-				public void run() {
-					if (violations.get(uuid) != null && violations.get(uuid).get(pattern.getCounter()) != null) {
-						violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) - 1);
-						
-						TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter()));
-						for (ProxiedPlayer notify: getProxy().getPlayers()) {			
-							if (notify.hasPermission("autoban.notify")) {
-								notify.sendMessage(counterNotify);
-							}
-						}
-					}
-				}
-				
-			}, counter.getTTL(), TimeUnit.SECONDS);
-		}
-	}
+    /**
+     * counter values
+     */
+    private Map<String, HashMap<String, Integer>> violations = new HashMap<String, HashMap<String, Integer>>();
 
-	public List<String> getServerGroup(String group) {
-		return serverGroups.getStringList(group);
-	}
+    /**
+     * action configurations
+     */
+    private HashMap<String, ChannelsAutobanAction> actions = new HashMap<String, ChannelsAutobanAction>();
 
-	public ChannelsAutobanPattern getIPPattern() {
-		return ippattern;
-	}
+    /**
+     * name of commandsender
+     */
+    private String commandSenderName;
 
-	public List<String> getIPWhitelist() {
-		return ipWhitelist;
-	}
+    /**
+     * list of servergroups
+     */
+    private Configuration serverGroups;
+
+    /**
+     * special pattern executed when ip matched
+     */
+    private ChannelsAutobanPattern ippattern;
+
+    /**
+     * ip whitelist
+     */
+    private List<String> ipWhitelist = new ArrayList<String>();
+
+    /**
+     * enable plugin
+     */
+    @SuppressWarnings("unchecked")
+    public void onEnable() {
+        configFile = new File(this.getDataFolder()+File.separator+"config.yml");
+        if (!configFile.exists()) {
+            try {
+                createDefaultConfig(configFile);
+            } catch (IOException e) {
+                e.printStackTrace();
+                getLogger().severe("Unable to create configuration.");
+                return;
+            }
+        } else {
+            try {
+                cfg = ConfigurationProvider.getProvider( YamlConfiguration.class ).load( configFile );
+            } catch (IOException e) {
+                getLogger().severe("Unable to load configuration.");
+                e.printStackTrace();
+                return;
+            }
+        }
+
+        commandSenderName = cfg.getString("commandsender", "Autoban");
+        serverGroups = cfg.getSection("servergroups");
+
+        // load patterns
+        ArrayList<HashMap<String, Object>> patternCfgs = (ArrayList<HashMap<String, Object>>) cfg.get("patterns");
+
+        for (HashMap<String, Object> patternCfg: patternCfgs) {
+            patterns.add(new ChannelsAutobanPattern(patternCfg));
+        }
+
+        Map<String, Object> ipCheck = new LinkedHashMap<String, Object>();
+        for (String key : cfg.getSection("ipcheck").getKeys()) {
+            ipCheck.put(key, cfg.get("ipcheck." + key));
+        }
+        ippattern = new ChannelsAutobanPattern(ipCheck);
+        ipWhitelist = cfg.getStringList("ipcheck.whitelist");
+
+        // load counters
+        Configuration counterCfgs =  cfg.getSection("counters");
+
+        for (String counterName: counterCfgs.getKeys()) {
+            try {
+                counters.put(counterName, new ChannelsAutobanCounter(counterCfgs.getSection(counterName)));
+            } catch (NumberFormatException e) {
+                getLogger().warning("Could not load counter "+counterName+" due to invalid numbers in configuration.");
+                e.printStackTrace();
+            }
+        }
+
+        // load actions
+        Configuration actionCfgs = cfg.getSection("actions");
+        for (String actionName: actionCfgs.getKeys()) {
+            actions.put(actionName, new ChannelsAutobanAction(actionCfgs.getSection(actionName)));
+        }
+
+        // register listener
+        getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(cfg.getSection("counters.spam")));
+    }
+
+    /**
+     * create default configuration
+     * @param configFile
+     * @throws IOException
+     */
+    private void createDefaultConfig(File configFile) throws IOException {
+        if (!configFile.getParentFile().exists()) {
+            configFile.getParentFile().mkdirs();
+        }
+
+        configFile.createNewFile();
+        cfg = ymlCfg.load(new InputStreamReader(getResourceAsStream("config.yml")));
+        ymlCfg.save(cfg, configFile);
+    }
+
+    /**
+     * get myself
+     * @return plugin
+     */
+    public static ChannelsAutoban getInstance() {
+        return (ChannelsAutoban) ProxyServer.getInstance().getPluginManager().getPlugin("ChannelsAutoban");
+    }
+
+    public List<ChannelsAutobanPattern> getPatterns() {
+        return patterns;
+    }
+
+    public String getCommandSenderName() {
+        return commandSenderName;
+    }
+
+    /**
+     * increase violation counter
+     * @param p The sender
+     * @param pattern
+     * @param msg
+     */
+    public void increaseCounter(final ProxiedPlayer p, final ChannelsAutobanPattern pattern, final Message msg) {
+        if (pattern.getCounter() == null) {
+            return;
+        }
+
+        final String uuid = p.getUniqueId().toString();
+        if (violations.get(uuid) == null) {
+            violations.put(uuid, new HashMap<String, Integer>());
+        }
+        if (violations.get(uuid).get(pattern.getCounter()) == null) {
+            violations.get(uuid).put(pattern.getCounter(), 1);
+        } else {
+            violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) + 1 );
+        }
+
+        // execute
+        ChannelsAutobanCounter counter = counters.get(pattern.getCounter());
+        if (counter == null) {
+            getLogger().warning("No counter named '"+pattern.getCounter()+"' defined.");
+        } else {
+            // notify
+            TextComponent reasonNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
+            TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter())+"/"+counter.getMax());
+            for (ProxiedPlayer notify: getProxy().getPlayers()) {
+                if (notify.hasPermission("autoban.notify")) {
+                    notify.sendMessage(reasonNotify);
+                    notify.sendMessage(counterNotify);
+                }
+            }
+
+            if (violations.get(uuid).get(pattern.getCounter()) >= counter.getMax()) {
+                ChannelsAutobanAction action = actions.get(counter.getAction());
+                if (action == null) {
+                    getLogger().warning("No action named '"+counter.getAction()+"' defined.");
+                } else {
+                    action.execute(p, counter);
+                    return;
+                }
+            }
+
+            // decrease counter
+            getProxy().getScheduler().schedule(this, new Runnable() {
+                public void run() {
+                    if (violations.get(uuid) != null && violations.get(uuid).get(pattern.getCounter()) != null) {
+                        violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) - 1);
+
+                        TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter()));
+                        for (ProxiedPlayer notify: getProxy().getPlayers()) {
+                            if (notify.hasPermission("autoban.notify")) {
+                                notify.sendMessage(counterNotify);
+                            }
+                        }
+                    }
+                }
+
+            }, counter.getTTL(), TimeUnit.SECONDS);
+        }
+    }
+
+    public List<String> getServerGroup(String group) {
+        return serverGroups.getStringList(group);
+    }
+
+    public ChannelsAutobanPattern getIPPattern() {
+        return ippattern;
+    }
+
+    public List<String> getIPWhitelist() {
+        return ipWhitelist;
+    }
 }
