@@ -1,6 +1,6 @@
 name: ChannelsAutoban
 main: net.zaiyers.ChannelsAutoban.ChannelsAutoban
-version: 1.1.1
+version: '${minecraft.plugin.version}'
 author: zaiyers
 depends: [ Channels ]
 softDepends: [ BungeeRPC ]

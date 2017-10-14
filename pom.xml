@@ -1,40 +1,90 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>net.zaiyers</groupId>
-  <artifactId>ChannelsAutoban</artifactId>
-  <version>1.2-SNAPSHOT</version>
-  <description>Chat filter and ban plugin for Channels</description>
-  <repositories>
-      <repository>
-          <id>bungee-repo</id>
-          <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-      </repository>
-  </repositories>
-  <dependencies>
-  	<dependency>
-  		<groupId>net.md-5</groupId>
-        <artifactId>bungeecord-api</artifactId>
-        <version>1.8-SNAPSHOT</version>
-  	</dependency>
-  	<dependency>
-  		<groupId>net.zaiyers</groupId>
-  		<artifactId>Channels</artifactId>
-  		<version>1.1-SNAPSHOT</version>
-  	</dependency>
-  	<dependency>
-  		<groupId>net.zaiyers</groupId>
-  		<artifactId>BungeeRPC</artifactId>
-  		<version>0.0.1-SNAPSHOT</version>
-  	</dependency>
-      <dependency>
-          <groupId>net.md-5</groupId>
-          <artifactId>bungeecord-chat</artifactId>
-          <version>1.8-SNAPSHOT</version>
-      </dependency>
-      <dependency>
-          <groupId>net.md-5</groupId>
-          <artifactId>bungeecord-config</artifactId>
-          <version>1.8-SNAPSHOT</version>
-      </dependency>
-  </dependencies>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>net.zaiyers</groupId>
+    <artifactId>ChannelsAutoban</artifactId>
+    <version>1.2-SNAPSHOT</version>
+    <description>Chat filter and ban plugin for Channels</description>
+
+    <repositories>
+        <repository>
+            <id>bungee-repo</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </repository>
+    </repositories>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <minecraft.plugin.version>${project.version} ${buildDescription}</minecraft.plugin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>net.md-5</groupId>
+            <artifactId>bungeecord-api</artifactId>
+            <version>1.12-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>net.zaiyers</groupId>
+            <artifactId>Channels</artifactId>
+            <version>1.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>net.zaiyers</groupId>
+            <artifactId>BungeeRPC</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>net.md-5</groupId>
+            <artifactId>bungeecord-chat</artifactId>
+            <version>1.12-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>net.md-5</groupId>
+            <artifactId>bungeecord-config</artifactId>
+            <version>1.12-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>static_build_number</id>
+            <activation>
+                <property>
+                    <name>!env.BUILD_NUMBER</name>
+                </property>
+            </activation>
+            <properties>
+                <buildNumber>0</buildNumber>
+                <buildDescription>(compiled at ${maven.build.timestamp})</buildDescription>
+            </properties>
+        </profile>
+        <profile>
+            <id>dynamic_build_number</id>
+            <activation>
+                <property>
+                    <name>env.BUILD_NUMBER</name>
+                </property>
+            </activation>
+            <properties>
+                <buildNumber>${env.BUILD_NUMBER}</buildNumber>
+                <buildDescription>(build #${env.BUILD_NUMBER})</buildDescription>
+            </properties>
+        </profile>
+    </profiles>
+
+    <build>
+        <defaultGoal>clean package</defaultGoal>
+        <plugins>
+            <plugin>
+                <version>3.1</version>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
