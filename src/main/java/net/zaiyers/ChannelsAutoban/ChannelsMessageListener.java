@@ -63,7 +63,7 @@ public class ChannelsMessageListener implements Listener {
             spamPatternCfg.put("counter", "spam");
             spamPattern = new ChannelsAutobanPattern(spamPatternCfg);
         }
-        spamCacheSpec = CacheBuilderSpec.parse((ttl > 0 ? ",expireAfterWrite=" + ttl + "s" : ""));
+        spamCacheSpec = CacheBuilderSpec.parse(ttl > 0 ? "expireAfterWrite=" + ttl + "s" : "");
     }
 
     @EventHandler
