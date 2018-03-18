@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ProxyServer;
+import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
@@ -199,8 +200,10 @@ public class ChannelsAutoban extends Plugin {
             getLogger().warning("No counter named '"+pattern.getCounter()+"' defined.");
         } else {
             // notify
-            TextComponent reasonNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
-            TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter())+"/"+counter.getMax());
+            BaseComponent[] reasonNotify = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
+            BaseComponent[] counterNotify = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter())+"/"+counter.getMax());
+            getProxy().getConsole().sendMessage(reasonNotify);
+            getProxy().getConsole().sendMessage(counterNotify);
             for (ProxiedPlayer notify: getProxy().getPlayers()) {
                 if (notify.hasPermission("autoban.notify")) {
                     notify.sendMessage(reasonNotify);
@@ -219,20 +222,18 @@ public class ChannelsAutoban extends Plugin {
             }
 
             // decrease counter
-            getProxy().getScheduler().schedule(this, new Runnable() {
-                public void run() {
-                    if (violations.get(uuid) != null && violations.get(uuid).get(pattern.getCounter()) != null) {
-                        violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) - 1);
+            getProxy().getScheduler().schedule(this, () -> {
+                if (violations.get(uuid) != null && violations.get(uuid).get(pattern.getCounter()) != null) {
+                    violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) - 1);
 
-                        TextComponent counterNotify = new TextComponent(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter()));
-                        for (ProxiedPlayer notify: getProxy().getPlayers()) {
-                            if (notify.hasPermission("autoban.notify")) {
-                                notify.sendMessage(counterNotify);
-                            }
+                    BaseComponent[] counterNotify1 = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter()));
+                    getProxy().getConsole().sendMessage(counterNotify1);
+                    for (ProxiedPlayer notify: getProxy().getPlayers()) {
+                        if (notify.hasPermission("autoban.notify")) {
+                            notify.sendMessage(counterNotify1);
                         }
                     }
                 }
-
             }, counter.getTTL(), TimeUnit.SECONDS);
         }
     }
