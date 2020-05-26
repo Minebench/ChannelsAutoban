@@ -9,10 +9,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
@@ -178,8 +181,9 @@ public class ChannelsAutoban extends Plugin {
      * @param p The sender
      * @param pattern
      * @param msg
+     * @param matcher
      */
-    public void increaseCounter(final ProxiedPlayer p, final ChannelsAutobanPattern pattern, final Message msg) {
+    public void increaseCounter(final ProxiedPlayer p, final ChannelsAutobanPattern pattern, final Message msg, Matcher matcher) {
         if (pattern.getCounter() == null) {
             return;
         }
@@ -200,7 +204,11 @@ public class ChannelsAutoban extends Plugin {
             getLogger().warning("No counter named '"+pattern.getCounter()+"' defined.");
         } else {
             // notify
-            BaseComponent[] reasonNotify = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+"<"+p.getDisplayName()+"> "+msg.getRawMessage());
+            HoverEvent hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(msg.getRawMessage()).create());
+            BaseComponent[] reasonNotify = new ComponentBuilder("[Autoban] ").color(ChatColor.RED)
+                    .append("<"+p.getDisplayName()+"> ").color(ChatColor.WHITE).event(hover)
+                    .append(matcher == null ? pattern.getCounter() : matcher.group()).color(ChatColor.WHITE).event(hover)
+                    .create();
             BaseComponent[] counterNotify = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter())+"/"+counter.getMax());
             getProxy().getConsole().sendMessage(reasonNotify);
             getProxy().getConsole().sendMessage(counterNotify);

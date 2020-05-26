@@ -80,7 +80,7 @@ public class ChannelsMessageListener implements Listener {
         for (ChannelsAutobanPattern pattern : plugin.getPatterns()) {
             Matcher matcher = pattern.matcher(e.getMessage().getRawMessage());
             if (matcher.matches()) {
-                plugin.increaseCounter(p, pattern, e.getMessage());
+                plugin.increaseCounter(p, pattern, e.getMessage(), matcher);
                 if (pattern.doHide()) {
                     e.setCancelled(true);
                 } else if (pattern.getReplace() != null) {
@@ -102,7 +102,7 @@ public class ChannelsMessageListener implements Listener {
                 }
 
                 if (!plugin.getIPWhitelist().contains(host)) {
-                    plugin.increaseCounter(p, plugin.getIPPattern(), e.getMessage());
+                    plugin.increaseCounter(p, plugin.getIPPattern(), e.getMessage(), ipMatcher);
                 }
             }
         }
@@ -129,7 +129,7 @@ public class ChannelsMessageListener implements Listener {
 
                 // check for rate
                 if ((float) senderCache.size() / (float) ttl > rate) {
-                    plugin.increaseCounter(p, spamPattern, e.getMessage());
+                    plugin.increaseCounter(p, spamPattern, e.getMessage(), null);
                 }
             }
         }
