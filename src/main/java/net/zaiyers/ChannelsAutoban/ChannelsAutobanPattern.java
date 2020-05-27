@@ -37,9 +37,9 @@ public class ChannelsAutobanPattern {
 
         if (cfg.get("pattern") != null) {
             if (fuzzy) {
-                pattern = Pattern.compile(".*?" + cfg.get("pattern") + ".*?", Pattern.CASE_INSENSITIVE );
+                pattern = Pattern.compile(".*?(" + cfg.get("pattern") + ").*?", Pattern.CASE_INSENSITIVE );
             } else {
-                pattern = Pattern.compile((String) cfg.get("pattern"));
+                pattern = Pattern.compile("(" + cfg.get("pattern") + ")");
             }
         }
 

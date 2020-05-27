@@ -1,16 +1,9 @@
 package net.zaiyers.ChannelsAutoban;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
+import de.themoep.bungeeplugin.BungeePlugin;
+import de.themoep.bungeeplugin.FileConfiguration;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.chat.BaseComponent;
@@ -18,40 +11,35 @@ import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
-import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
-import net.md_5.bungee.config.ConfigurationProvider;
-import net.md_5.bungee.config.YamlConfiguration;
 import net.zaiyers.BungeeRPC.BungeeRPC;
 import net.zaiyers.Channels.message.Message;
 
-public class ChannelsAutoban extends Plugin {
-    /**
-     * configuration
-     */
-    private Configuration cfg;
-    private final static ConfigurationProvider ymlCfg = ConfigurationProvider.getProvider( YamlConfiguration.class );
-    private File configFile;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+
+public class ChannelsAutoban extends BungeePlugin {
 
     /**
      * patterns to look for
      */
-    private List<ChannelsAutobanPattern> patterns = new ArrayList<ChannelsAutobanPattern>();
+    private List<ChannelsAutobanPattern> patterns = new ArrayList<>();
 
     /**
      * counter configurations
      */
-    private HashMap<String, ChannelsAutobanCounter> counters = new HashMap<String, ChannelsAutobanCounter>();
+    private Map<String, ChannelsAutobanCounter> counters = new HashMap<>();
 
     /**
      * counter values
      */
-    private Map<String, HashMap<String, Integer>> violations = new HashMap<String, HashMap<String, Integer>>();
+    private Table<UUID, String, Integer> violations = HashBasedTable.create();
 
     /**
      * action configurations
      */
-    private HashMap<String, ChannelsAutobanAction> actions = new HashMap<String, ChannelsAutobanAction>();
+    private Map<String, ChannelsAutobanAction> actions = new HashMap<>();
 
     /**
      * name of commandsender
@@ -87,25 +75,17 @@ public class ChannelsAutoban extends Plugin {
             bungeeRpc = (BungeeRPC) getProxy().getPluginManager().getPlugin("BungeeRPC");
         }
 
-        configFile = new File(this.getDataFolder()+File.separator+"config.yml");
-        if (!configFile.exists()) {
-            try {
-                createDefaultConfig(configFile);
-            } catch (IOException e) {
-                e.printStackTrace();
-                getLogger().severe("Unable to create configuration.");
-                return;
-            }
-        } else {
-            try {
-                cfg = ConfigurationProvider.getProvider( YamlConfiguration.class ).load( configFile );
-            } catch (IOException e) {
-                getLogger().severe("Unable to load configuration.");
-                e.printStackTrace();
-                return;
-            }
-        }
+        loadConfig();
 
+        // register listener
+        getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(this));
+
+        // register command
+        getProxy().getPluginManager().registerCommand(this, new ChannelsAutobanCommand(this));
+    }
+
+    void loadConfig() {
+        FileConfiguration cfg = getConfig();
         commandSenderName = cfg.getString("commandsender", "Autoban");
         serverGroups = cfg.getSection("servergroups");
 
@@ -140,24 +120,6 @@ public class ChannelsAutoban extends Plugin {
         for (String actionName: actionCfgs.getKeys()) {
             actions.put(actionName, new ChannelsAutobanAction(this, actionCfgs.getSection(actionName)));
         }
-
-        // register listener
-        getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(this));
-    }
-
-    /**
-     * create default configuration
-     * @param configFile
-     * @throws IOException
-     */
-    private void createDefaultConfig(File configFile) throws IOException {
-        if (!configFile.getParentFile().exists()) {
-            configFile.getParentFile().mkdirs();
-        }
-
-        configFile.createNewFile();
-        cfg = ymlCfg.load(new InputStreamReader(getResourceAsStream("config.yml")));
-        ymlCfg.save(cfg, configFile);
     }
 
     /**
@@ -188,14 +150,11 @@ public class ChannelsAutoban extends Plugin {
             return;
         }
 
-        final String uuid = p.getUniqueId().toString();
-        if (violations.get(uuid) == null) {
-            violations.put(uuid, new HashMap<String, Integer>());
-        }
-        if (violations.get(uuid).get(pattern.getCounter()) == null) {
-            violations.get(uuid).put(pattern.getCounter(), 1);
+        final UUID uuid = p.getUniqueId();
+        if (!violations.contains(uuid, pattern.getCounter())) {
+            violations.put(uuid, pattern.getCounter(), 1);
         } else {
-            violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) + 1 );
+            violations.put(uuid, pattern.getCounter(), violations.get(uuid, pattern.getCounter()) + 1);
         }
 
         // execute
@@ -204,12 +163,13 @@ public class ChannelsAutoban extends Plugin {
             getLogger().warning("No counter named '"+pattern.getCounter()+"' defined.");
         } else {
             // notify
+            String matched = matcher == null ? pattern.getCounter() : matcher.groupCount() > 0 ? matcher.group(1) : matcher.group();
             HoverEvent hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(msg.getRawMessage()).create());
             BaseComponent[] reasonNotify = new ComponentBuilder("[Autoban] ").color(ChatColor.RED)
-                    .append("<"+p.getDisplayName()+"> ").color(ChatColor.WHITE).event(hover)
-                    .append(matcher == null ? pattern.getCounter() : matcher.group()).color(ChatColor.WHITE).event(hover)
+                    .append(p.getDisplayName()+": ").color(ChatColor.WHITE)
+                    .append(matched).color(ChatColor.WHITE).event(hover)
                     .create();
-            BaseComponent[] counterNotify = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter())+"/"+counter.getMax());
+            BaseComponent[] counterNotify = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid, pattern.getCounter())+"/"+counter.getMax());
             getProxy().getConsole().sendMessage(reasonNotify);
             getProxy().getConsole().sendMessage(counterNotify);
             for (ProxiedPlayer notify: getProxy().getPlayers()) {
@@ -219,7 +179,7 @@ public class ChannelsAutoban extends Plugin {
                 }
             }
 
-            if (violations.get(uuid).get(pattern.getCounter()) >= counter.getMax()) {
+            if (violations.get(uuid, pattern.getCounter()) >= counter.getMax()) {
                 ChannelsAutobanAction action = actions.get(counter.getAction());
                 if (action == null) {
                     getLogger().warning("No action named '"+counter.getAction()+"' defined.");
@@ -231,10 +191,10 @@ public class ChannelsAutoban extends Plugin {
 
             // decrease counter
             getProxy().getScheduler().schedule(this, () -> {
-                if (violations.get(uuid) != null && violations.get(uuid).get(pattern.getCounter()) != null) {
-                    violations.get(uuid).put(pattern.getCounter(), violations.get(uuid).get(pattern.getCounter()) - 1);
+                if (violations.contains(uuid, pattern.getCounter())) {
+                    violations.put(uuid, pattern.getCounter(), violations.get(uuid, pattern.getCounter()) - 1);
 
-                    BaseComponent[] counterNotify1 = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid).get(pattern.getCounter()));
+                    BaseComponent[] counterNotify1 = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid, pattern.getCounter()));
                     getProxy().getConsole().sendMessage(counterNotify1);
                     for (ProxiedPlayer notify: getProxy().getPlayers()) {
                         if (notify.hasPermission("autoban.notify")) {
@@ -266,11 +226,4 @@ public class ChannelsAutoban extends Plugin {
         return bungeeRpc;
     }
 
-    /**
-     * get the plugin's config
-     * @return the plugin's config
-     */
-    public Configuration getConfig() {
-        return cfg;
-    }
 }
