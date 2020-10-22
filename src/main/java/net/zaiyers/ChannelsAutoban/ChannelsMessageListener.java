@@ -16,7 +16,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.event.EventHandler;
-import net.zaiyers.Channels.ChannelsChatEvent;
+import net.zaiyers.Channels.events.ChannelsChatEvent;
 import net.zaiyers.Channels.message.Message;
 
 public class ChannelsMessageListener implements Listener {
