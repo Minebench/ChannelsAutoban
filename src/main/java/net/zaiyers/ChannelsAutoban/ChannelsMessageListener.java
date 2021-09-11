@@ -6,12 +6,12 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheBuilderSpec;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.config.Configuration;
@@ -28,8 +28,6 @@ public class ChannelsMessageListener implements Listener {
      * remember last messages until ttl runs out
      */
     private Map<UUID, Cache<String, Message>> msgHistory = new HashMap<>();
-
-    private final CacheBuilderSpec spamCacheSpec;
 
     /**
      * delete from history after tll seconds
@@ -56,14 +54,16 @@ public class ChannelsMessageListener implements Listener {
         Configuration spamCfg = plugin.getConfig().getSection("counters.spam");
         if (spamCfg != null) {
             ttl = spamCfg.getInt("ttl");
+            if (ttl < 0) ttl = 0;
             rate = spamCfg.getFloat("rate");
             denyRepeat = spamCfg.getBoolean("deny-repeat");
 
             HashMap<String, Object> spamPatternCfg = new HashMap<String, Object>();
             spamPatternCfg.put("counter", "spam");
             spamPattern = new ChannelsAutobanPattern(spamPatternCfg);
+
+            plugin.getLogger().info("Spam config: ttl=" + ttl + "s, rate=" + rate + ", denyRepeat=" + denyRepeat);
         }
-        spamCacheSpec = CacheBuilderSpec.parse(ttl > 0 ? "expireAfterWrite=" + ttl + "s" : "");
     }
 
     @EventHandler
@@ -94,16 +94,13 @@ public class ChannelsMessageListener implements Listener {
             String host = getHost(e.getMessage().getRawMessage());
             int port = getPort(e.getMessage().getRawMessage());
 
-            if (serverAlive(host, port)) {
+            if (!plugin.getIPWhitelist().contains(host) && serverAlive(host, port)) {
                 if (plugin.getIPPattern().doHide()) {
                     e.setCancelled(true);
                 } else if ((plugin.getIPPattern().getReplace() != null)) {
                     e.getMessage().setRawMessage(ipMatcher.replaceAll((plugin.getIPPattern().getReplace())));
                 }
-
-                if (!plugin.getIPWhitelist().contains(host)) {
-                    plugin.increaseCounter(p, plugin.getIPPattern(), e.getMessage(), ipMatcher);
-                }
+                plugin.increaseCounter(p, plugin.getIPPattern(), e.getMessage(), ipMatcher);
             }
         }
 
@@ -122,7 +119,7 @@ public class ChannelsMessageListener implements Listener {
 
             if (!e.isCancelled()) {
                 if (senderCache == null) {
-                    senderCache = CacheBuilder.from(spamCacheSpec).build();
+                    senderCache = CacheBuilder.newBuilder().expireAfterWrite(ttl, TimeUnit.SECONDS).build();
                     msgHistory.put(uuid, senderCache);
                 }
                 senderCache.put(e.getMessage().getRawMessage().toLowerCase(), e.getMessage());
