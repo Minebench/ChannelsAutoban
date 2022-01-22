@@ -17,6 +17,7 @@ import net.zaiyers.Channels.message.Message;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.regex.Matcher;
 
 public class ChannelsAutoban extends BungeePlugin {
@@ -93,14 +94,22 @@ public class ChannelsAutoban extends BungeePlugin {
         ArrayList<HashMap<String, Object>> patternCfgs = (ArrayList<HashMap<String, Object>>) cfg.get("patterns");
 
         for (HashMap<String, Object> patternCfg: patternCfgs) {
-            patterns.add(new ChannelsAutobanPattern(patternCfg));
+            try {
+                patterns.add(new ChannelsAutobanPattern(patternCfg));
+            } catch (IllegalArgumentException e) {
+                getLogger().log(Level.SEVERE, "Pattern config is invalid! " + e.getMessage() + " " + patternCfg);
+            }
         }
 
         Map<String, Object> ipCheck = new LinkedHashMap<String, Object>();
         for (String key : cfg.getSection("ipcheck").getKeys()) {
             ipCheck.put(key, cfg.get("ipcheck." + key));
         }
-        ippattern = new ChannelsAutobanPattern(ipCheck);
+        try {
+            ippattern = new ChannelsAutobanPattern(ipCheck);
+        } catch (IllegalArgumentException e) {
+            getLogger().log(Level.SEVERE, "IP Pattern config is invalid! " + e.getMessage() + " " + ipCheck);
+        }
         ipWhitelist = cfg.getStringList("ipcheck.whitelist");
 
         // load counters
@@ -110,8 +119,7 @@ public class ChannelsAutoban extends BungeePlugin {
             try {
                 counters.put(counterName, new ChannelsAutobanCounter(counterCfgs.getSection(counterName)));
             } catch (NumberFormatException e) {
-                getLogger().warning("Could not load counter "+counterName+" due to invalid numbers in configuration.");
-                e.printStackTrace();
+                getLogger().warning("Could not load counter "+counterName+" due to invalid numbers in configuration. " + e.getMessage());
             }
         }
 
