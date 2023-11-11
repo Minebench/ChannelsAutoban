@@ -68,7 +68,7 @@ public class ChannelsMessageListener implements Listener {
 
     @EventHandler
     public void onChannelsMessage(ChannelsChatEvent e) {
-        if (!(e.getMessage().getSender() instanceof ProxiedPlayer)) {
+        if (e.isCancelled() || !(e.getMessage().getSender() instanceof ProxiedPlayer)) {
             return;
         }
         ProxiedPlayer p = (ProxiedPlayer) e.getMessage().getSender();
@@ -82,7 +82,7 @@ public class ChannelsMessageListener implements Listener {
             if (matcher.matches()) {
                 plugin.increaseCounter(p, pattern, e.getMessage(), matcher);
                 if (pattern.doHide()) {
-                    e.setCancelled(true);
+                    e.setHidden(true);
                 } else if (pattern.getReplace() != null) {
                     e.getMessage().setRawMessage(matcher.replaceAll(pattern.getReplace()));
                 }
@@ -96,7 +96,7 @@ public class ChannelsMessageListener implements Listener {
 
             if (!plugin.getIPWhitelist().contains(host) && serverAlive(host, port)) {
                 if (plugin.getIPPattern().doHide()) {
-                    e.setCancelled(true);
+                    e.setHidden(true);
                 } else if ((plugin.getIPPattern().getReplace() != null)) {
                     e.getMessage().setRawMessage(ipMatcher.replaceAll((plugin.getIPPattern().getReplace())));
                 }
@@ -114,7 +114,7 @@ public class ChannelsMessageListener implements Listener {
                     && senderCache != null
                     && senderCache.size() > 0
                     && senderCache.getIfPresent(e.getMessage().getRawMessage().toLowerCase()) != null) {
-                e.setCancelled(true);
+                e.setHidden(true);
             }
 
             if (!e.isCancelled()) {
