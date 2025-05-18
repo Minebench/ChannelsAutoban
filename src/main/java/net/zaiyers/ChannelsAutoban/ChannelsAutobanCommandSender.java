@@ -1,55 +1,27 @@
 package net.zaiyers.ChannelsAutoban;
 
-import java.util.Collection;
+import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.permission.Tristate;
+import net.kyori.adventure.audience.MessageType;
+import net.kyori.adventure.identity.Identity;
+import net.kyori.adventure.text.Component;
+import org.jetbrains.annotations.NotNull;
 
-import net.md_5.bungee.api.CommandSender;
-import net.md_5.bungee.api.chat.BaseComponent;
-
-public class ChannelsAutobanCommandSender implements CommandSender {
+public class ChannelsAutobanCommandSender implements CommandSource {
     private final ChannelsAutoban plugin;
 
     public ChannelsAutobanCommandSender(ChannelsAutoban plugin) {
         this.plugin = plugin;
     }
-    public void addGroups(String... arg0) {}
-    
-    public Collection<String> getGroups() {
-        return null; 
+
+    @Override
+    public Tristate getPermissionValue(String permission) {
+        return Tristate.TRUE;
     }
 
-    public String getName() {
-        return plugin.getCommandSenderName();
+    @Override
+    @SuppressWarnings("deprecation")
+    public void sendMessage(final @NotNull Identity source, final @NotNull Component message, final @NotNull MessageType type) {
+        plugin.getProxy().getConsoleCommandSource().sendMessage( Component.text(plugin.getCommandSenderName() + ": ").append(message));
     }
-
-    public Collection<String> getPermissions() {
-        return null; 
-    }
-    
-    public boolean hasPermission(String arg0) {
-        return true; 
-    }
-    
-    public void removeGroups(String... arg0) {}
-    
-    public void sendMessage(String arg0) {
-        plugin.getProxy().getLogger().info(getName() + ": " + arg0);
-    }
-    
-    public void sendMessage(BaseComponent... arg0) {
-        for(BaseComponent b : arg0) {
-            plugin.getProxy().getLogger().info(getName() + ": " + b.toPlainText());
-        }
-    }
-    
-    public void sendMessage(BaseComponent arg0) {
-        plugin.getProxy().getLogger().info(getName() + ": " + arg0.toPlainText());
-    }
-    
-    public void sendMessages(String... arg0) {
-        for(String s : arg0) {
-            plugin.getProxy().getLogger().info(getName() + ": " + s);
-        }
-    }
-    
-    public void setPermission(String arg0, boolean arg1) {}
 }

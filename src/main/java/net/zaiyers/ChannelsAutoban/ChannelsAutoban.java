@@ -2,25 +2,39 @@ package net.zaiyers.ChannelsAutoban;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
-import de.themoep.bungeeplugin.BungeePlugin;
-import de.themoep.bungeeplugin.FileConfiguration;
-import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.ProxyServer;
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.api.connection.ProxiedPlayer;
-import net.md_5.bungee.config.Configuration;
-import net.zaiyers.BungeeRPC.BungeeRPC;
+import com.google.inject.Inject;
+import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
+import com.velocitypowered.api.plugin.PluginContainer;
+import com.velocitypowered.api.plugin.annotation.DataDirectory;
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
+import de.themoep.connectorplugin.velocity.VelocityConnectorPlugin;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.zaiyers.Channels.command.AbstractCommandExecutor;
 import net.zaiyers.Channels.message.Message;
+import org.slf4j.Logger;
+import org.slf4j.event.Level;
+import org.spongepowered.configurate.serialize.SerializationException;
 
-import java.util.*;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.regex.Matcher;
 
-public class ChannelsAutoban extends BungeePlugin {
+public class ChannelsAutoban {
+
+    private final ProxyServer proxy;
+    private final Logger logger;
+    private final FileConfiguration config;
 
     /**
      * patterns to look for
@@ -50,7 +64,7 @@ public class ChannelsAutoban extends BungeePlugin {
     /**
      * list of servergroups
      */
-    private Configuration serverGroups;
+    private Map<String, Object> serverGroups;
 
     /**
      * special pattern executed when ip matched
@@ -60,82 +74,96 @@ public class ChannelsAutoban extends BungeePlugin {
     /**
      * ip whitelist
      */
-    private List<String> ipWhitelist = new ArrayList<String>();
+    private List<String> ipWhitelist = new ArrayList<>();
 
     /**
-     * BungeeRPC plugin
+     * ConnectorPlugin instance
      */
-    private BungeeRPC bungeeRpc;
+    private VelocityConnectorPlugin connectorPlugin;
 
-    /**
-     * enable plugin
-     */
-    @SuppressWarnings("unchecked")
-    public void onEnable() {
-        if (getProxy().getPluginManager().getPlugin("BungeeRPC") != null) {
-            bungeeRpc = (BungeeRPC) getProxy().getPluginManager().getPlugin("BungeeRPC");
-        }
-
-        loadConfig();
-
-        // register listener
-        getProxy().getPluginManager().registerListener(this, new ChannelsMessageListener(this));
-
-        // register command
-        getProxy().getPluginManager().registerCommand(this, new ChannelsAutobanCommand(this));
+    @Inject
+    public ChannelsAutoban(ProxyServer proxy, Logger logger, @DataDirectory Path dataFolder) {
+        this.proxy = proxy;
+        this.logger = logger;
+        config = new FileConfiguration(this, dataFolder.resolve("config.yml"));
     }
 
-    void loadConfig() {
+    /**
+     * executed on startup
+     */
+    @Subscribe
+    public void onProxyInitialization(ProxyInitializeEvent event) {
+        Optional<PluginContainer> connectorPlugin = getProxy().getPluginManager().getPlugin("connectorplugin");
+        if (connectorPlugin.isPresent()) {
+            this.connectorPlugin = (VelocityConnectorPlugin) connectorPlugin.get().getInstance().get();
+        }
+
+        try {
+            loadConfig();
+        } catch (SerializationException e) {
+            throw new RuntimeException(e);
+        }
+
+        // register listener
+        getProxy().getEventManager().register(this, new ChannelsMessageListener(this));
+
+        // register command
+        registerCommand(new ChannelsAutobanCommand(this));
+    }
+
+    private void registerCommand(AbstractCommandExecutor command) {
+        getProxy().getCommandManager().register(getProxy().getCommandManager()
+                .metaBuilder(command.getName())
+                .aliases(command.getAliases())
+                .plugin(this)
+                .build(), command);
+    }
+
+    void loadConfig() throws SerializationException {
         FileConfiguration cfg = getConfig();
+        cfg.load();
         commandSenderName = cfg.getString("commandsender", "Autoban");
         serverGroups = cfg.getSection("servergroups");
 
         // load patterns
-        ArrayList<HashMap<String, Object>> patternCfgs = (ArrayList<HashMap<String, Object>>) cfg.get("patterns");
+        List<Map> patternCfgs = cfg.getRawConfig("patterns").getList(Map.class);
 
-        for (HashMap<String, Object> patternCfg: patternCfgs) {
+        for (Map<String, Object> patternCfg: patternCfgs) {
             try {
                 patterns.add(new ChannelsAutobanPattern(patternCfg));
             } catch (IllegalArgumentException e) {
-                getLogger().log(Level.SEVERE, "Pattern config is invalid! " + e.getMessage() + " " + patternCfg);
+                log(Level.ERROR, "Pattern config is invalid! " + e.getMessage() + " " + patternCfg);
             }
         }
 
-        Map<String, Object> ipCheck = new LinkedHashMap<String, Object>();
-        for (String key : cfg.getSection("ipcheck").getKeys()) {
-            ipCheck.put(key, cfg.get("ipcheck." + key));
-        }
+        Map<String, Object> ipCheck = new LinkedHashMap<>(cfg.getSection("ipcheck"));
         try {
             ippattern = new ChannelsAutobanPattern(ipCheck);
         } catch (IllegalArgumentException e) {
-            getLogger().log(Level.SEVERE, "IP Pattern config is invalid! " + e.getMessage() + " " + ipCheck);
+            log(Level.ERROR, "IP Pattern config is invalid! " + e.getMessage() + " " + ipCheck);
         }
         ipWhitelist = cfg.getStringList("ipcheck.whitelist");
 
         // load counters
-        Configuration counterCfgs =  cfg.getSection("counters");
+        Map<String, Object> counterCfgs =  cfg.getSection("counters");
 
-        for (String counterName: counterCfgs.getKeys()) {
+        for (String counterName: counterCfgs.keySet()) {
             try {
-                counters.put(counterName, new ChannelsAutobanCounter(counterCfgs.getSection(counterName)));
-            } catch (NumberFormatException e) {
-                getLogger().warning("Could not load counter "+counterName+" due to invalid numbers in configuration. " + e.getMessage());
+                counters.put(counterName, new ChannelsAutobanCounter((Map<String, Object>) counterCfgs.get(counterName)));
+            } catch (Exception e) {
+                log(Level.WARN, "Could not load counter "+counterName+" due to invalid configuration. " + e.getMessage());
             }
         }
 
         // load actions
-        Configuration actionCfgs = cfg.getSection("actions");
-        for (String actionName: actionCfgs.getKeys()) {
-            actions.put(actionName, new ChannelsAutobanAction(this, actionCfgs.getSection(actionName)));
+        Map<String, Object> actionCfgs = cfg.getSection("actions");
+        for (String actionName: actionCfgs.keySet()) {
+            try {
+                actions.put(actionName, new ChannelsAutobanAction(this, (Map<String, Object>) actionCfgs.get(actionName)));
+            } catch (Exception e) {
+                log(Level.WARN, "Could not load action "+actionName+" due to invalid configuration. " + e.getMessage());
+            }
         }
-    }
-
-    /**
-     * get myself
-     * @return plugin
-     */
-    public static ChannelsAutoban getInstance() {
-        return (ChannelsAutoban) ProxyServer.getInstance().getPluginManager().getPlugin("ChannelsAutoban");
     }
 
     public List<ChannelsAutobanPattern> getPatterns() {
@@ -153,7 +181,7 @@ public class ChannelsAutoban extends BungeePlugin {
      * @param msg
      * @param matcher
      */
-    public void increaseCounter(final ProxiedPlayer p, final ChannelsAutobanPattern pattern, final Message msg, Matcher matcher) {
+    public void increaseCounter(final Player p, final ChannelsAutobanPattern pattern, final Message msg, Matcher matcher) {
         if (pattern.getCounter() == null) {
             return;
         }
@@ -168,19 +196,20 @@ public class ChannelsAutoban extends BungeePlugin {
         // execute
         ChannelsAutobanCounter counter = counters.get(pattern.getCounter());
         if (counter == null) {
-            getLogger().warning("No counter named '"+pattern.getCounter()+"' defined.");
+            log(Level.WARN, "No counter named '"+pattern.getCounter()+"' defined.");
         } else {
             // notify
             String matched = matcher == null ? pattern.getCounter() : matcher.groupCount() > 0 ? matcher.group(1) : matcher.group();
-            HoverEvent hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(msg.getRawMessage()).create());
-            BaseComponent[] reasonNotify = new ComponentBuilder("[Autoban] ").color(ChatColor.RED)
-                    .append(p.getDisplayName()+": ").color(ChatColor.WHITE)
-                    .append(matched).color(ChatColor.WHITE).event(hover)
-                    .create();
-            BaseComponent[] counterNotify = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid, pattern.getCounter())+"/"+counter.getMax());
-            getProxy().getConsole().sendMessage(reasonNotify);
-            getProxy().getConsole().sendMessage(counterNotify);
-            for (ProxiedPlayer notify: getProxy().getPlayers()) {
+            HoverEvent hover = HoverEvent.showText(Component.text(msg.getRawMessage()));
+            Component reasonNotify = Component.text("[Autoban] ").color(NamedTextColor.RED)
+                    .append(Component.text(p.getUsername() + ": ")).color(NamedTextColor.WHITE)
+                    .append(Component.text(matched)).color(NamedTextColor.WHITE).hoverEvent(hover);
+            Component counterNotify = Component.text("[Autoban] ").color(NamedTextColor.RED)
+                    .append(Component.text(p.getUsername() + "@" + pattern.getCounter() + ": "
+                            + violations.get(uuid, pattern.getCounter()) + "/" + counter.getMax())).color(NamedTextColor.WHITE);
+            getProxy().getConsoleCommandSource().sendMessage(reasonNotify);
+            getProxy().getConsoleCommandSource().sendMessage(counterNotify);
+            for (Player notify: getProxy().getAllPlayers()) {
                 if (notify.hasPermission("autoban.notify")) {
                     notify.sendMessage(reasonNotify);
                     notify.sendMessage(counterNotify);
@@ -190,7 +219,7 @@ public class ChannelsAutoban extends BungeePlugin {
             if (violations.get(uuid, pattern.getCounter()) >= counter.getMax()) {
                 ChannelsAutobanAction action = actions.get(counter.getAction());
                 if (action == null) {
-                    getLogger().warning("No action named '"+counter.getAction()+"' defined.");
+                    log(Level.WARN, "No action named '"+counter.getAction()+"' defined.");
                 } else {
                     action.execute(p, counter);
                     return;
@@ -198,24 +227,26 @@ public class ChannelsAutoban extends BungeePlugin {
             }
 
             // decrease counter
-            getProxy().getScheduler().schedule(this, () -> {
+            getProxy().getScheduler().buildTask(this, () -> {
                 if (violations.contains(uuid, pattern.getCounter())) {
                     violations.put(uuid, pattern.getCounter(), violations.get(uuid, pattern.getCounter()) - 1);
 
-                    BaseComponent[] counterNotify1 = TextComponent.fromLegacyText(ChatColor.RED+"[Autoban] "+ChatColor.WHITE+p.getDisplayName()+"@"+pattern.getCounter()+": "+violations.get(uuid, pattern.getCounter()));
-                    getProxy().getConsole().sendMessage(counterNotify1);
-                    for (ProxiedPlayer notify: getProxy().getPlayers()) {
+                    Component counterNotify1 = Component.text("[Autoban] ").color(NamedTextColor.RED)
+                            .append(Component.text(p.getUsername() + "@" + pattern.getCounter() + ": "
+                                    + violations.get(uuid, pattern.getCounter()) + "/" + counter.getMax())).color(NamedTextColor.WHITE);
+                    getProxy().getConsoleCommandSource().sendMessage(counterNotify1);
+                    for (Player notify: getProxy().getAllPlayers()) {
                         if (notify.hasPermission("autoban.notify")) {
                             notify.sendMessage(counterNotify1);
                         }
                     }
                 }
-            }, counter.getTTL(), TimeUnit.SECONDS);
+            }).delay(counter.getTTL(), TimeUnit.SECONDS);
         }
     }
 
     public List<String> getServerGroup(String group) {
-        return serverGroups.getStringList(group);
+        return (List<String>) serverGroups.get(group);
     }
 
     public ChannelsAutobanPattern getIPPattern() {
@@ -227,11 +258,28 @@ public class ChannelsAutoban extends BungeePlugin {
     }
 
     /**
-     * get the optional BungeeRPC dependency
-     * @return BungeeRPC or <tt>null</tt> if it isn't installed
+     * get the optional ConnectorPlugin dependency
+     * @return ConnectorPlugin or <tt>null</tt> if it isn't installed
      */
-    BungeeRPC getBungeeRpc() {
-        return bungeeRpc;
+    VelocityConnectorPlugin getConnectorPlugin() {
+        return connectorPlugin;
     }
+
+    public ProxyServer getProxy() {
+        return proxy;
+    }
+
+    public FileConfiguration getConfig() {
+        return config;
+    }
+
+    public void log(org.slf4j.event.Level level, String message) {
+        logger.atLevel(level).log(message);
+    }
+
+    public void log(org.slf4j.event.Level level, String message, Throwable throwable) {
+        logger.atLevel(level).setCause(throwable).log(message);
+    }
+
 
 }

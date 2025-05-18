@@ -1,26 +1,41 @@
 package net.zaiyers.ChannelsAutoban;
 
-import de.themoep.bungeeplugin.PluginCommand;
-import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.CommandSender;
+import com.velocitypowered.api.command.CommandSource;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.zaiyers.Channels.command.AbstractCommandExecutor;
+import org.slf4j.event.Level;
+import org.spongepowered.configurate.serialize.SerializationException;
 
-public class ChannelsAutobanCommand extends PluginCommand<ChannelsAutoban> {
+import java.util.List;
+
+public class ChannelsAutobanCommand extends AbstractCommandExecutor {
     private final ChannelsAutoban plugin;
 
     public ChannelsAutobanCommand(ChannelsAutoban plugin) {
-        super(plugin, "channelsautoban");
+        super("channelsautoban", "channelsautoban.command", "autoban");
         this.plugin = plugin;
     }
 
     @Override
-    protected boolean run(CommandSender sender, String[] args) {
+    public void execute(CommandSource sender, String[] args) {
         if (args.length > 0) {
-            if ("reload".equalsIgnoreCase(args[0]) && sender.hasPermission(getCommandPermission() + ".reload")) {
-                plugin.loadConfig();
-                sender.sendMessage(ChatColor.RED + "[Autoban] " + ChatColor.GREEN + "Config reloaded!");
-                return true;
+            if ("reload".equalsIgnoreCase(args[0]) && sender.hasPermission(getPermission() + ".reload")) {
+                try {
+                    plugin.loadConfig();
+                    sender.sendMessage(Component.text("[Autoban] ").color(NamedTextColor.RED)
+                            .append(Component.text("Config reloaded!").color(NamedTextColor.GREEN)));
+                } catch (SerializationException e) {
+                    sender.sendMessage(Component.text("[Autoban] ").color(NamedTextColor.RED)
+                            .append(Component.text("Error while reloading config! " + e.getMessage()).color(NamedTextColor.RED)));
+                    plugin.log(Level.ERROR, "Error while reloading config!", e);
+                }
             }
         }
-        return false;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSource sender, String[] args) {
+        return List.of("reload");
     }
 }

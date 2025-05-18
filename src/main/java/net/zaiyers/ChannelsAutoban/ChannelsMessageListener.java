@@ -12,14 +12,13 @@ import java.util.regex.Pattern;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import net.md_5.bungee.api.connection.ProxiedPlayer;
-import net.md_5.bungee.api.plugin.Listener;
-import net.md_5.bungee.config.Configuration;
-import net.md_5.bungee.event.EventHandler;
+import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.proxy.Player;
 import net.zaiyers.Channels.events.ChannelsChatEvent;
 import net.zaiyers.Channels.message.Message;
+import org.slf4j.event.Level;
 
-public class ChannelsMessageListener implements Listener {
+public class ChannelsMessageListener {
     private static final Pattern IPPattern = Pattern.compile(".*?([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})(:[0-9]{3,5}|).*?");
 
     private final ChannelsAutoban plugin;
@@ -51,27 +50,26 @@ public class ChannelsMessageListener implements Listener {
 
     public ChannelsMessageListener(ChannelsAutoban plugin) {
         this.plugin = plugin;
-        Configuration spamCfg = plugin.getConfig().getSection("counters.spam");
+        Map<String, Object> spamCfg = plugin.getConfig().getSection("counters.spam");
         if (spamCfg != null) {
-            ttl = spamCfg.getInt("ttl");
+            ttl = (int) spamCfg.get("ttl");
             if (ttl < 0) ttl = 0;
-            rate = spamCfg.getFloat("rate");
-            denyRepeat = spamCfg.getBoolean("deny-repeat");
+            rate = (float) spamCfg.get("rate");
+            denyRepeat = (boolean) spamCfg.get("deny-repeat");
 
-            HashMap<String, Object> spamPatternCfg = new HashMap<String, Object>();
+            HashMap<String, Object> spamPatternCfg = new HashMap<>();
             spamPatternCfg.put("counter", "spam");
             spamPattern = new ChannelsAutobanPattern(spamPatternCfg);
 
-            plugin.getLogger().info("Spam config: ttl=" + ttl + "s, rate=" + rate + ", denyRepeat=" + denyRepeat);
+            plugin.log(Level.INFO, "Spam config: ttl=" + ttl + "s, rate=" + rate + ", denyRepeat=" + denyRepeat);
         }
     }
 
-    @EventHandler
+    @Subscribe
     public void onChannelsMessage(ChannelsChatEvent e) {
-        if (e.isCancelled() || !(e.getMessage().getSender() instanceof ProxiedPlayer)) {
+        if (e.isCancelled() || !(e.getMessage().getSender() instanceof Player p)) {
             return;
         }
-        ProxiedPlayer p = (ProxiedPlayer) e.getMessage().getSender();
 
         if (p.hasPermission("autoban.exempt")) {
             return;
@@ -134,16 +132,16 @@ public class ChannelsMessageListener implements Listener {
 
     private boolean serverAlive(String host, int port) {
         try {
-            if (!host.equals("127.0.0.1") && !host.equals("0.0.0.0")) {
+            if (!host.startsWith("127.") && !host.startsWith("0.") && !host.startsWith("10.") && !host.startsWith("192.168.") && !host.startsWith("172.")) {
                 InetSocketAddress sockaddr = new InetSocketAddress(host, port);
                 Socket s = new Socket();
                 s.connect(sockaddr, 250);
                 s.close();
-                plugin.getProxy().getLogger().info("[Autoban] Host "+host+":"+port+" is reachable.");
+                plugin.log(Level.INFO, "[Autoban] Host " + host + ":" + port + " is reachable.");
                 return true;
             }
         } catch (IOException e) {
-            plugin.getProxy().getLogger().info("[Autoban] Host "+host+":"+port+" is NOT reachable.");
+            plugin.log(Level.INFO, "[Autoban] Host " + host + ":" + port + " is NOT reachable.");
         }
         return false;
     }

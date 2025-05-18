@@ -1,0 +1,17 @@
+{
+  "id": "channelsautoban",
+  "name": "ChannelsAutoban",
+  "version": "${minecraft.plugin.version}",
+  "main": "net.zaiyers.ChannelsAutoban.ChannelsAutoban",
+  "authors": ["zaiysers", "Phoenix616"],
+  "dependencies": [
+    {
+      "id": "channels",
+      "optional": false
+    },
+    {
+      "id": "connectorplugin",
+      "optional": true
+    }
+  ]
+}

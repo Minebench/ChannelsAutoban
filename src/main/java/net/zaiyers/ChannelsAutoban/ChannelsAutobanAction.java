@@ -1,12 +1,12 @@
 package net.zaiyers.ChannelsAutoban;
 
-import java.util.List;
+import com.velocitypowered.api.proxy.Player;
+import de.themoep.minedown.adventure.MineDown;
+import de.themoep.minedown.adventure.Replacer;
+import org.slf4j.event.Level;
 
-import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.api.config.ServerInfo;
-import net.md_5.bungee.api.connection.ProxiedPlayer;
-import net.md_5.bungee.config.Configuration;
+import java.util.List;
+import java.util.Map;
 
 public class ChannelsAutobanAction {
 
@@ -25,7 +25,7 @@ public class ChannelsAutobanAction {
     /**
      * commands to perform on servergroups
      */
-    private Configuration serverGroupCommands;
+    private Map<String, Object> serverGroupCommands;
 
     /**
      * commands to perform locally
@@ -46,54 +46,52 @@ public class ChannelsAutobanAction {
      * @param cfg
      */
     @SuppressWarnings("unchecked")
-    public ChannelsAutobanAction(ChannelsAutoban plugin, Configuration cfg) {
+    public ChannelsAutobanAction(ChannelsAutoban plugin, Map<String, Object> cfg) {
         this.plugin = plugin;
         sender = new ChannelsAutobanCommandSender(plugin);
 
         if (cfg.get("kick") != null) {
-            kick = cfg.getBoolean("kick");
+            kick = (boolean) cfg.get("kick");
         }
         if (cfg.get("note") != null) {
-            notes = cfg.getStringList("note");
+            notes = (List<String>) cfg.get("note");
         }
         if (cfg.get("playerserver") != null) {
-            playerServerCmds = cfg.getStringList("playerserver");
+            playerServerCmds = (List<String>) cfg.get("playerserver");
         }
         if (cfg.get("groups") != null) {
-            serverGroupCommands = cfg.getSection("groups");
+            serverGroupCommands = (Map<String, Object>) cfg.get("groups");
         }
         if (cfg.get("local") != null) {
-            localCmds = cfg.getStringList("local");
+            localCmds = (List<String>) cfg.get("local");
         }
     }
 
-    public void execute(ProxiedPlayer p, ChannelsAutobanCounter counter) {
+    public void execute(Player p, ChannelsAutobanCounter counter) {
 
         if (notes != null) {
             for (String msg : notes) {
-                msg = msg.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
-                p.sendMessage(TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', msg)));
+                p.sendMessage(MineDown.parse(msg, "name", p.getUsername(), "reason", counter.getReason()));
             }
         }
         
-        if (playerServerCmds != null && plugin.getBungeeRpc() != null) {
+        if (playerServerCmds != null && plugin.getConnectorPlugin() != null && p.getCurrentServer().isPresent()) {
+            String playerServer = p.getCurrentServer().get().getServerInfo().getName();
             for (String cmd : playerServerCmds) {
-                cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
-                plugin.getBungeeRpc().sendToBukkit(p.getServer().getInfo(), ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
+                cmd = Replacer.replaceIn(cmd, "name", p.getUsername(), "reason", counter.getReason());
+                plugin.getConnectorPlugin().getBridge().runServerConsoleCommand(playerServer, cmd);
             }
         }
 
-        if (serverGroupCommands != null && plugin.getBungeeRpc() != null) {
-            for (String group : serverGroupCommands.getKeys()) {
+        if (serverGroupCommands != null && plugin.getConnectorPlugin() != null) {
+            for (String group : serverGroupCommands.keySet()) {
                 for (String server : plugin.getServerGroup(group)) {
-                    ServerInfo serverInfo = plugin.getProxy().getServerInfo(server);
-                    if (serverInfo == null) {
-                        plugin.getLogger().warning("Unknown server: " + server);
+                    if (plugin.getProxy().getServer(server).isEmpty()) {
+                        plugin.log(Level.WARN, "Unknown server: " + server);
                     } else {
-                        for (String cmd : serverGroupCommands.getStringList(group)) {
-                            cmd = cmd.replaceAll("%name%", p.getName())
-                                    .replaceAll("%reason%", counter.getReason());
-                            plugin.getBungeeRpc().sendToBukkit(serverInfo, ChannelsAutoban.getInstance().getCommandSenderName(), cmd);
+                        for (String cmd : (List<String>) serverGroupCommands.get(group)) {
+                            cmd = Replacer.replaceIn(cmd, "name", p.getUsername(), "reason", counter.getReason());
+                            plugin.getConnectorPlugin().getBridge().runServerConsoleCommand(server, cmd);
                         }
                     }
                 }
@@ -102,13 +100,13 @@ public class ChannelsAutobanAction {
 
         if (localCmds != null) {
             for (String cmd : localCmds) {
-                cmd = cmd.replaceAll("%name%", p.getName()).replaceAll("%reason%", counter.getReason());
-                plugin.getProxy().getPluginManager().dispatchCommand(sender, cmd);
+                cmd = Replacer.replaceIn(cmd, "name", p.getUsername(), "reason", counter.getReason());
+                plugin.getProxy().getCommandManager().executeImmediatelyAsync(sender, cmd);
             }
         }
 
         if (kick) {
-            p.disconnect(new TextComponent(counter.getReason()+" (Autoban)"));
+            p.disconnect(MineDown.parse(counter.getReason() + " (Autoban)"));
         }
     }
 }
